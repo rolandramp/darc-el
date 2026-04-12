@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "darc-el"
+version = "0.1.0"
+description = "DARC-EL: LLM-Based Data Extraction for Assessing Reporting Completeness in Electrocatalysis Literature"
+readme = "README.md"
+license = { file = "LICENSE" }
+authors = [
+  { name = "Roland Ramp" },
+]
+requires-python = ">=3.14"
+dependencies = [
+  "pyzotero",
+  "python-dotenv",
+]
+
+[project.scripts]
+zotero-download = "main:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+py-modules = ["main"]

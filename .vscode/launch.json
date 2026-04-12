@@ -1,0 +1,34 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "DARC-EL: Run",
+      "type": "python",
+      "request": "launch",
+      "program": "${workspaceFolder}/src/main.py",
+      "console": "integratedTerminal",
+      "justMyCode": true,
+      "env": {
+        "ZOTERO_LIBRARY_ID": "${env:ZOTERO_LIBRARY_ID}",
+        "ZOTERO_API_KEY": "${env:ZOTERO_API_KEY}",
+        "ZOTERO_LIBRARY_TYPE": "${env:ZOTERO_LIBRARY_TYPE}",
+        "ZOTERO_OUTPUT_FILE": "${env:ZOTERO_OUTPUT_FILE}"
+      }
+    },
+    {
+      "name": "DARC-EL: Debug",
+      "type": "python",
+      "request": "launch",
+      "program": "${workspaceFolder}/src/main.py",
+      "console": "integratedTerminal",
+      "justMyCode": false,
+      "stopOnEntry": false,
+      "env": {
+        "ZOTERO_LIBRARY_ID": "${env:ZOTERO_LIBRARY_ID}",
+        "ZOTERO_API_KEY": "${env:ZOTERO_API_KEY}",
+        "ZOTERO_LIBRARY_TYPE": "${env:ZOTERO_LIBRARY_TYPE}",
+        "ZOTERO_OUTPUT_FILE": "${env:ZOTERO_OUTPUT_FILE}"
+      }
+    }
+  ]
+}

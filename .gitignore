@@ -1,0 +1,4 @@
+.env
+darc_el.egg-info/
+zotero_group_items.json
+__pycache__/
