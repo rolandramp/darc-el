@@ -1,4 +1,5 @@
 .env
 darc_el.egg-info/
+dist/
 zotero_group_items.json
 __pycache__/

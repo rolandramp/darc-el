@@ -1,6 +1,6 @@
 [build-system]
-requires = ["setuptools>=68", "wheel"]
-build-backend = "setuptools.build_meta"
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
 
 [project]
 name = "darc-el"
@@ -20,6 +20,11 @@ dependencies = [
 [project.scripts]
 zotero-download = "main:main"
 
-[tool.setuptools]
-package-dir = {"" = "src"}
-py-modules = ["main"]
+[tool.hatch.build.targets.wheel]
+include = ["src/main.py"]
+
+[tool.hatch.build.targets.wheel.sources]
+"src" = ""
+
+[tool.hatch.build.targets.sdist]
+include = ["src/main.py", "README.md", "LICENSE", "pyproject.toml"]
