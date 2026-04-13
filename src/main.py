@@ -1,11 +1,22 @@
 import os
 import sys
-import json
+import importlib.util
 from pathlib import Path
 
-from pyzotero import zotero
-
 from dotenv import load_dotenv
+
+
+def _load_zotero_download_service_class():
+    service_path = Path(__file__).resolve().parent / "darc-el" / "service" / "download_service.py"
+    spec = importlib.util.spec_from_file_location("download_service", service_path)
+    if spec is None or spec.loader is None:
+        raise ImportError("Could not load download service module")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module.ZoteroDownloadService
+
+
+ZoteroDownloadService = _load_zotero_download_service_class()
 
 def require_env(name: str) -> str:
     value = os.getenv(name, "").strip()
@@ -24,14 +35,17 @@ def main() -> None:
     library_type = os.getenv("ZOTERO_LIBRARY_TYPE", "group").strip() or "group"
     output_file = os.getenv("ZOTERO_OUTPUT_FILE", "zotero_group_items.json").strip() or "zotero_group_items.json"
 
-    client = zotero.Zotero(library_id, library_type, api_key)
-    items = client.everything(client.items())
+    download_service = ZoteroDownloadService(
+        library_id=library_id,
+        api_key=api_key,
+        library_type=library_type,
+    )
+    items = download_service.download_items()
 
     print(f"Connected to Zotero {library_type} library {library_id}")
     print(f"Downloaded {len(items)} item(s)")
 
-    with open(output_file, "w", encoding="utf-8") as f:
-        json.dump(items, f, ensure_ascii=False, indent=2)
+    download_service.save_items_to_file(items, output_file)
 
     print(f"Saved all items to {output_file}")
 

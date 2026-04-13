@@ -1,5 +1,5 @@
 [build-system]
-requires = ["hatchling>=1.25"]
+requires = ["hatch>=1.16", "hatchling>=1.25"]
 build-backend = "hatchling.build"
 
 [project]
@@ -13,6 +13,7 @@ authors = [
 ]
 requires-python = ">=3.14"
 dependencies = [
+  "pydantic>=2.0",
   "pyzotero",
   "python-dotenv",
 ]
