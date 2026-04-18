@@ -12,6 +12,7 @@ from service.document_ingestion_service import (
     UnsupportedDocumentTypeError,
 )
 from service.download_service import ZoteroDownloadService
+from service.llm_client_service import OpenAIClientService
 from service.neo4j_document_service import Neo4jDocumentService
 
 
@@ -164,6 +165,59 @@ class PydanticValidationTests(unittest.TestCase):
                 Neo4jDocumentService()
 
         self.assertIn("Missing Neo4j password", str(exc.exception))
+
+    def test_llm_client_service_uses_env_defaults(self):
+        created_clients: list[tuple[str, str]] = []
+
+        def fake_client_factory(base_url: str, api_key: str):
+            created_clients.append((base_url, api_key))
+            return {"base_url": base_url, "api_key": api_key}
+
+        with patch.dict(
+            "os.environ",
+            {
+                "LLM_URL": " http://ollama:11434 ",
+                "LLAMA_CPP_URL": " http://llama-cpp:8080 ",
+                "LLM_KEY": " test-key ",
+                "LLM_MODEL": "ministral",
+                "LLM_EMBED": "nomic-embed-text",
+                "LLM_DEFAULT_PROVIDER": "llama.cpp",
+            },
+            clear=True,
+        ):
+            service = OpenAIClientService(client_factory=fake_client_factory)
+
+        self.assertEqual(service.default_provider, "llama_cpp")
+        self.assertEqual(service.chat_model, "ministral")
+        self.assertEqual(service.embedding_model, "nomic-embed-text")
+        self.assertEqual(
+            created_clients,
+            [
+                ("http://ollama:11434/v1", "test-key"),
+                ("http://llama-cpp:8080/v1", "test-key"),
+            ],
+        )
+        self.assertEqual(
+            service.get_ollama_client(),
+            {"base_url": "http://ollama:11434/v1", "api_key": "test-key"},
+        )
+        self.assertEqual(
+            service.get_llama_cpp_client(),
+            {"base_url": "http://llama-cpp:8080/v1", "api_key": "test-key"},
+        )
+
+    def test_llm_client_service_falls_back_to_ollama_provider(self):
+        service = OpenAIClientService(
+            default_provider="unknown",
+            client_factory=lambda base_url, api_key: {
+                "base_url": base_url,
+                "api_key": api_key,
+            },
+        )
+
+        self.assertEqual(service.default_provider, "ollama")
+        selected_client = service.get_client()
+        self.assertEqual(selected_client["base_url"], "http://ollama-llm:11434/v1")
 
 
 if __name__ == "__main__":

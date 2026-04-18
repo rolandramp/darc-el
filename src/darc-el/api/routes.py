@@ -97,6 +97,12 @@ def upload_status(request: Request) -> dict[str, object | None]:
     return dict(request.app.state.upload_status)
 
 
+@router.get("/llm/status")
+def llm_status(request: Request) -> dict[str, Any]:
+    llm_client_service = request.app.state.llm_client_service
+    return llm_client_service.status_payload()
+
+
 @router.post("/upload")
 async def upload_documents(request: Request, files: list[UploadFile] = File(...)) -> dict[str, Any]:
     if not files:

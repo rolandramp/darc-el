@@ -3,6 +3,7 @@ from __future__ import annotations
 from fastapi import FastAPI
 
 from api.routes import router
+from service.llm_client_service import OpenAIClientService
 
 
 def create_default_download_status() -> dict[str, object | None]:
@@ -29,3 +30,4 @@ def create_default_upload_status() -> dict[str, object | None]:
 def initialize_app_state(app: FastAPI) -> None:
     app.state.download_status = create_default_download_status()
     app.state.upload_status = create_default_upload_status()
+    app.state.llm_client_service = OpenAIClientService()

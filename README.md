@@ -109,6 +109,12 @@ zotero_group_items.json
 - Neo4j Bolt: bolt://localhost:7687
 - Ollama API: http://localhost:6543
 
+## Shared LLM Clients
+
+The application initializes a shared OpenAI-compatible client service at startup. It creates and keeps one client for Ollama (`LLM_URL`) and one for llama.cpp (`LLAMA_CPP_URL`) so later pipelines (for example, RAG or QnA) can reuse them.
+
+Use `GET /llm/status` to inspect non-secret client configuration and initialization state.
+
 ## Document Uploads
 
 Use `POST /upload` with `multipart/form-data` and one or more files in the `files` field.

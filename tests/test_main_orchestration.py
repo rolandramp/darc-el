@@ -166,6 +166,22 @@ class MainOrchestrationTests(unittest.TestCase):
         self.assertEqual(response.status_code, 415)
         self.assertEqual(response.json()["detail"], "Unsupported document type: application/zip")
 
+    @patch("main.load_dotenv")
+    def test_llm_status_endpoint_exposes_client_configuration(self, load_dotenv_mock):
+        with TestClient(main.app) as client:
+            response = client.get("/llm/status")
+
+        load_dotenv_mock.assert_called_once()
+        self.assertEqual(response.status_code, 200)
+
+        payload = response.json()
+        self.assertIn(payload["default_provider"], ["ollama", "llama_cpp"])
+        self.assertIn("providers", payload)
+        self.assertIn("ollama", payload["providers"])
+        self.assertIn("llama_cpp", payload["providers"])
+        self.assertIn("base_url", payload["providers"]["ollama"])
+        self.assertIn("initialized", payload["providers"]["ollama"])
+
     def test_require_env_exits_when_missing(self):
         with patch.dict("os.environ", {}, clear=True):
             with self.assertRaises(SystemExit) as exc:
