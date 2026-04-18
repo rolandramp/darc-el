@@ -3,17 +3,15 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any
 
-from fastapi import APIRouter, File, HTTPException, Request, UploadFile
-
-from core.download_request import DownloadRequest
 from core.document_ingestion import DocumentIngestionRecord
+from core.download_request import DownloadRequest
+from fastapi import APIRouter, File, HTTPException, Request, UploadFile
 from service.document_ingestion_service import (  # type: ignore[import-not-found]
     DocumentIngestionService,
     UnsupportedDocumentTypeError,
 )
 from service.download_service import ZoteroDownloadService
 from service.neo4j_document_service import Neo4jDocumentService
-
 
 router = APIRouter()
 

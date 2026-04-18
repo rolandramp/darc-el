@@ -5,9 +5,8 @@ import mimetypes
 from pathlib import Path
 from typing import Any, ClassVar
 
-from pydantic import BaseModel
-
 from core.document_ingestion import DocumentChunk, DocumentIngestionRecord
+from pydantic import BaseModel
 
 
 class UnsupportedDocumentTypeError(ValueError):

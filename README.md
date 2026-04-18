@@ -140,6 +140,28 @@ The current Neo4j connection used by the app inside Docker is `bolt://neo4j-kg:7
 - The DARC-EL container is started by the Dockerfile `CMD` and the compose service definition.
 - Neo4j downloads its plugins during image build, so there is no host-mounted plugin directory anymore.
 
+## Static Analysis
+
+This project uses Ruff for Python static code analysis and linting.
+
+Install development dependencies:
+
+```bash
+pip install -e .[dev]
+```
+
+Run lint checks:
+
+```bash
+make lint
+```
+
+Run lint with auto-fixes:
+
+```bash
+make lint-fix
+```
+
 
 ## Test file upload
 

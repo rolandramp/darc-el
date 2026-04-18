@@ -5,7 +5,6 @@ from typing import Any, Callable
 
 from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, model_validator
 
-
 ProviderClientFactory = Callable[[str, str], Any]
 SUPPORTED_PROVIDERS = {"ollama", "llama_cpp"}
 

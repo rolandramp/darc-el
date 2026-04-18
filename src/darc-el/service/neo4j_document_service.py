@@ -4,9 +4,8 @@ import json
 import os
 from typing import Any
 
-from pydantic import BaseModel, model_validator
-
 from core.document_ingestion import DocumentIngestionRecord
+from pydantic import BaseModel, model_validator
 
 
 class Neo4jDocumentService(BaseModel):

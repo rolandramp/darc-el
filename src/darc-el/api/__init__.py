@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-from fastapi import FastAPI
-
 from api.routes import router
+from fastapi import FastAPI
 from service.llm_client_service import OpenAIClientService
 
 

@@ -29,6 +29,23 @@ dependencies = [
 [project.scripts]
 zotero-download = "main:main"
 
+[project.optional-dependencies]
+dev = [
+  "ruff>=0.15.11",
+]
+
+[tool.ruff]
+target-version = "py314"
+line-length = 100
+src = ["src", "tests"]
+exclude = [
+  "src/darc_el.egg-info",
+]
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]
+ignore = ["E501"]
+
 [tool.hatch.build.targets.wheel]
 include = ["src/main.py"]
 

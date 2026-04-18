@@ -2,7 +2,7 @@ COMPOSE ?= docker compose
 SERVICE ?= darc-el
 OUTPUT_FILE ?= zotero_group_items.json
 
-.PHONY: help build compose-build docker-build up run down recreate logs shell gpu-up gpu-logs gpu-shell clean
+.PHONY: help build compose-build docker-build up run down recreate logs shell gpu-up gpu-logs gpu-shell lint lint-fix clean
 
 help:
 	@echo "Available targets:"
@@ -18,6 +18,8 @@ help:
 	@echo "  make gpu-up        - Start the GPU profile (llama-cpp-backend)"
 	@echo "  make gpu-logs      - Follow llama-cpp-backend logs"
 	@echo "  make gpu-shell     - Open a shell in llama-cpp-backend"
+	@echo "  make lint          - Run static analysis with Ruff"
+	@echo "  make lint-fix      - Run Ruff with auto-fixes"
 	@echo "  make clean  - Remove generated output file"
 
 build:
@@ -52,6 +54,12 @@ gpu-logs:
 
 gpu-shell:
 	$(COMPOSE) --profile gpu run --rm llama-cpp-backend sh
+
+lint:
+	ruff check src tests
+
+lint-fix:
+	ruff check --fix src tests
 
 docker-build: compose-build
 

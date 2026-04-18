@@ -5,8 +5,8 @@ import sys
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI
 from dotenv import load_dotenv
+from fastapi import FastAPI
 
 PACKAGE_ROOT = Path(__file__).resolve().parent / "darc-el"
 if str(PACKAGE_ROOT) not in sys.path:

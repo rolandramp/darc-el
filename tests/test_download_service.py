@@ -4,9 +4,8 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from pydantic import ValidationError
-
 from core.document_ingestion import DocumentChunk, DocumentIngestionRecord
+from pydantic import ValidationError
 from service.document_ingestion_service import (
     DocumentIngestionService,
     UnsupportedDocumentTypeError,
