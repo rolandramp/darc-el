@@ -18,18 +18,21 @@ This project is licensed under the MIT License. See [LICENSE](LICENSE).
 ## Prerequisites
 
 - Docker installed and running
+- Docker Compose v2 (`docker compose`) or the legacy `docker-compose` command
 - A valid Zotero API key and library ID
 
 ## Project Structure
 
-- `Dockerfile` builds the Python image
+- `Dockerfile` builds the Python app image
+- `docker-compose.yml` builds and runs the app together with Neo4j and Ollama
 - `pyproject.toml` defines project dependencies
 - `src/main.py` contains the application entry point
 - `.env` stores runtime environment variables
+- `.env.example` provides a safe template without secrets
 
 ## 1. Configure Environment Variables
 
-Edit `.env` and set your own values:
+Copy `.env.example` to `.env` and set your own values:
 
 ZOTERO_LIBRARY_ID=your_library_id
 ZOTERO_API_KEY=your_api_key
@@ -39,32 +42,66 @@ Optional:
 
 ZOTERO_OUTPUT_FILE=zotero_group_items.json
 
-## 2. Build the Docker Image
+If you use the Neo4j or LLM services directly, also review the values for `NEO4J_*`, `LLM_*`, and `LLAMA_CPP_*` in `.env`.
 
-From the project root, run:
+## 2. Build with Docker Compose
 
-docker build -t darc-el:latest .
+From the project root, build the services:
 
-## 3. Run the Container
+```bash
+docker compose build
+```
 
-Run with your env file:
+To build only the application service:
 
-docker run --rm --env-file .env -v ${PWD}:/app darc-el:latest python src/main.py
+```bash
+docker compose build darc-el
+```
 
-If you are using PowerShell and `${PWD}` causes issues, use:
+## 3. Run the Stack
 
-docker run --rm --env-file .env -v "${PWD}:/app" darc-el:latest python src/main.py
+Start the full stack:
+
+```bash
+docker compose up
+```
+
+Or run only the application service:
+
+```bash
+docker compose up darc-el
+```
+
+If you want to rebuild before starting:
+
+```bash
+docker compose up --build
+```
+
+To recreate the service:
+
+```bash
+docker compose up -d --build --force-recreate darc-el
+```
 
 ## 4. Verify Output
 
-After the container finishes, check the generated JSON file in your project directory.
+After the service runs a download, check the generated JSON file in your project directory.
 
 Default output file:
 
 zotero_group_items.json
 
+## Access the Services
+
+- DARC-EL API: http://localhost:8000
+- Neo4j Browser: http://localhost:7474
+- Neo4j Bolt: bolt://localhost:7687
+- Ollama API: http://localhost:6543
+
 ## Notes
 
 - Keep `.env` private. Do not commit real API keys.
 - Dependencies are installed from `pyproject.toml` during image build.
-- The container work directory is `/app`.
+- The DARC-EL container is started by the Dockerfile `CMD` and the compose service definition.
+- Neo4j downloads its plugins during image build, so there is no host-mounted plugin directory anymore.

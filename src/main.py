@@ -1,22 +1,117 @@
+from __future__ import annotations
+
 import os
 import sys
-import importlib.util
+from datetime import datetime, timezone
+from contextlib import asynccontextmanager
 from pathlib import Path
 
+from fastapi import APIRouter, FastAPI, HTTPException
 from dotenv import load_dotenv
 
+PACKAGE_ROOT = Path(__file__).resolve().parent / "darc-el"
+if str(PACKAGE_ROOT) not in sys.path:
+    sys.path.insert(0, str(PACKAGE_ROOT))
 
-def _load_zotero_download_service_class():
-    service_path = Path(__file__).resolve().parent / "darc-el" / "service" / "download_service.py"
-    spec = importlib.util.spec_from_file_location("download_service", service_path)
-    if spec is None or spec.loader is None:
-        raise ImportError("Could not load download service module")
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module.ZoteroDownloadService
+from core.download_request import DownloadRequest  # type: ignore[import-not-found]
+from service.download_service import ZoteroDownloadService  # type: ignore[import-not-found]
 
 
-ZoteroDownloadService = _load_zotero_download_service_class()
+def _create_default_download_status() -> dict[str, object | None]:
+    return {
+        "state": "idle",
+        "updated_at": None,
+        "library_id": None,
+        "library_type": None,
+        "output_file": None,
+        "item_count": None,
+        "message": "No downloads have been requested yet.",
+    }
+
+
+router = APIRouter()
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    project_root = Path(__file__).resolve().parents[1]
+    load_dotenv(dotenv_path=project_root / ".env", override=False)
+    yield
+
+
+app = FastAPI(title="DARC-EL Zotero Download API", lifespan=lifespan)
+app.state.download_status = _create_default_download_status()
+
+
+def _now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+def _set_download_status(**updates: object | None) -> None:
+    app.state.download_status.update(updates)
+
+
+@router.get("/health")
+def health() -> dict[str, str]:
+    return {"status": "ok"}
+
+
+@router.get("/status")
+def status() -> dict[str, object | None]:
+    return dict(app.state.download_status)
+
+
+@router.post("/download")
+def download(download_request: DownloadRequest | None = None) -> dict[str, object]:
+    try:
+        download_service, output_file = ZoteroDownloadService.from_download_request(
+            download_request
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    library_id = download_service.library_id
+    library_type = download_service.library_type
+
+    _set_download_status(
+        state="running",
+        updated_at=_now_iso(),
+        library_id=library_id,
+        library_type=library_type,
+        output_file=output_file,
+        item_count=None,
+        message="Download in progress.",
+    )
+
+    try:
+        items = download_service.download_items()
+        download_service.save_items_to_file(items, output_file)
+    except Exception as exc:  # pragma: no cover - exercised through API tests
+        _set_download_status(
+            state="failed",
+            updated_at=_now_iso(),
+            message=str(exc),
+        )
+        raise HTTPException(status_code=502, detail=f"Download failed: {exc}") from exc
+
+    item_count = len(items)
+    _set_download_status(
+        state="completed",
+        updated_at=_now_iso(),
+        item_count=item_count,
+        message=f"Downloaded {item_count} item(s).",
+    )
+
+    return {
+        "status": "completed",
+        "item_count": item_count,
+        "items": items,
+        "output_file": output_file,
+    }
+
+
+app.include_router(router)
+
 
 def require_env(name: str) -> str:
     value = os.getenv(name, "").strip()
@@ -27,34 +122,9 @@ def require_env(name: str) -> str:
 
 
 def main() -> None:
-    project_root = Path(__file__).resolve().parents[1]
-    load_dotenv(dotenv_path=project_root / ".env", override=True)
-    library_id = require_env("ZOTERO_LIBRARY_ID")
-    api_key = require_env("ZOTERO_API_KEY")
-    # Default to group access for this downloader.
-    library_type = os.getenv("ZOTERO_LIBRARY_TYPE", "group").strip() or "group"
-    output_file = os.getenv("ZOTERO_OUTPUT_FILE", "zotero_group_items.json").strip() or "zotero_group_items.json"
+    import uvicorn
 
-    download_service = ZoteroDownloadService(
-        library_id=library_id,
-        api_key=api_key,
-        library_type=library_type,
-    )
-    items = download_service.download_items()
-
-    print(f"Connected to Zotero {library_type} library {library_id}")
-    print(f"Downloaded {len(items)} item(s)")
-
-    download_service.save_items_to_file(items, output_file)
-
-    print(f"Saved all items to {output_file}")
-
-    for item in items:
-        data = item.get("data", {})
-        item_type = data.get("itemType", "unknown")
-        key = data.get("key", "unknown")
-        title = data.get("title", "(no title)")
-        print(f"- {item_type} | {key} | {title}")
+    uvicorn.run(app, host="0.0.0.0", port=8000)
 
 
 if __name__ == "__main__":
