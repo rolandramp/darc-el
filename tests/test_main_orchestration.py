@@ -9,18 +9,14 @@ if str(SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(SRC_ROOT))
 
 import main
+from api import routes as api_routes
+from core.document_ingestion import DocumentChunk, DocumentIngestionRecord
 from fastapi.testclient import TestClient
 
 
 class MainOrchestrationTests(unittest.TestCase):
     def setUp(self):
-        main.app.state.download_status = main._create_default_download_status()
-        main.app.state.upload_status = {
-            "state": "idle",
-            "updated_at": None,
-            "item_count": None,
-            "message": "No uploads have been requested yet.",
-        }
+        main.initialize_app_state(main.app)
 
     @patch("main.load_dotenv")
     def test_health_endpoint_returns_ok(self, load_dotenv_mock):
@@ -54,7 +50,7 @@ class MainOrchestrationTests(unittest.TestCase):
         ]
 
         with patch.object(
-            main.ZoteroDownloadService,
+            api_routes.ZoteroDownloadService,
             "from_download_request",
             return_value=(service_instance, "output.json"),
         ) as from_request_mock:
@@ -85,7 +81,7 @@ class MainOrchestrationTests(unittest.TestCase):
     @patch("main.load_dotenv")
     def test_download_endpoint_rejects_missing_credentials(self, load_dotenv_mock):
         with patch.object(
-            main.ZoteroDownloadService,
+            api_routes.ZoteroDownloadService,
             "from_download_request",
             side_effect=ValueError("Missing Zotero library ID"),
         ):
@@ -98,22 +94,22 @@ class MainOrchestrationTests(unittest.TestCase):
 
     @patch("main.load_dotenv")
     def test_upload_endpoint_parses_files_and_writes_to_neo4j(self, load_dotenv_mock):
-        record_one = main.DocumentIngestionRecord(
+        record_one = DocumentIngestionRecord(
             file_name="paper-a.pdf",
             content_type="application/pdf",
             source_type="pdf",
             metadata={"page_count": 1},
             text="Alpha",
-            chunks=[main.DocumentChunk(index=0, text="Alpha")],
+            chunks=[DocumentChunk(index=0, text="Alpha")],
             parser_name="pypdf",
         )
-        record_two = main.DocumentIngestionRecord(
+        record_two = DocumentIngestionRecord(
             file_name="notes.txt",
             content_type="text/plain",
             source_type="text",
             metadata={"encoding": "utf-8"},
             text="Beta",
-            chunks=[main.DocumentChunk(index=0, text="Beta")],
+            chunks=[DocumentChunk(index=0, text="Beta")],
             parser_name="utf-8-text",
         )
 
@@ -125,8 +121,8 @@ class MainOrchestrationTests(unittest.TestCase):
             {"file_name": "notes.txt", "status": "completed"},
         ]
 
-        with patch.object(main, "DocumentIngestionService", return_value=ingestion_service):
-            with patch.object(main, "Neo4jDocumentService", return_value=neo4j_service):
+        with patch.object(api_routes, "DocumentIngestionService", return_value=ingestion_service):
+            with patch.object(api_routes, "Neo4jDocumentService", return_value=neo4j_service):
                 with TestClient(main.app) as client:
                     response = client.post(
                         "/upload",
@@ -155,11 +151,11 @@ class MainOrchestrationTests(unittest.TestCase):
     @patch("main.load_dotenv")
     def test_upload_endpoint_rejects_unsupported_file_types(self, load_dotenv_mock):
         ingestion_service = MagicMock()
-        ingestion_service.ingest_upload.side_effect = main.UnsupportedDocumentTypeError(
+        ingestion_service.ingest_upload.side_effect = api_routes.UnsupportedDocumentTypeError(
             "Unsupported document type: application/zip"
         )
 
-        with patch.object(main, "DocumentIngestionService", return_value=ingestion_service):
+        with patch.object(api_routes, "DocumentIngestionService", return_value=ingestion_service):
             with TestClient(main.app) as client:
                 response = client.post(
                     "/upload",
