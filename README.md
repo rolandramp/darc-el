@@ -6,6 +6,8 @@ DARC-EL Data-driven Assessment of Reporting Completeness in Electrocatalysis Lit
 
 Reliable evaluation of electrocatalysts requires consistent reporting of key properties such as activity, overpotential, and long-term stability, yet these metrics are frequently incomplete or inconsistently documented in the literature. This project's goal is to develop a GenAI-powered automated pipeline to systematically analyze a large body of electrocatalysis literature, extract key properties, and quantify how often essential information is missing. A benchmark on prompt-engineered and retrieval-augmented LLM approaches using a ground-truth dataset will be done, then the best-performing method will be applied to a broad corpus of papers. The system identifies underreporting trends and variations across journals and publication years, providing data-driven insights into the evolution of reporting practices in electrocatalysis.
 
+The API now also accepts document uploads for ingestion into Neo4j. Uploaded files are parsed by type, extracted into a transport object, chunked for later retrieval, and stored as separate graph nodes.
+
 ## Author
 
 - Roland Ramp
@@ -20,6 +22,7 @@ This project is licensed under the MIT License. See [LICENSE](LICENSE).
 - Docker installed and running
 - Docker Compose v2 (`docker compose`) or the legacy `docker-compose` command
 - A valid Zotero API key and library ID
+- Neo4j runs as part of the compose stack at `bolt://neo4j-kg:7687`
 
 ## Project Structure
 
@@ -27,6 +30,7 @@ This project is licensed under the MIT License. See [LICENSE](LICENSE).
 - `docker-compose.yml` builds and runs the app together with Neo4j and Ollama
 - `pyproject.toml` defines project dependencies
 - `src/main.py` contains the application entry point
+- `src/darc-el/service/` contains the Zotero download service, document ingestion service, and Neo4j persistence service
 - `.env` stores runtime environment variables
 - `.env.example` provides a safe template without secrets
 
@@ -84,6 +88,12 @@ To recreate the service:
 docker compose up -d --build --force-recreate darc-el
 ```
 
+To start up everthing with GPU:
+
+```bash
+docker compose --profile gpu up -d
+```
+
 ## 4. Verify Output
 
 After the service runs a download, check the generated JSON file in your project directory.
@@ -99,9 +109,35 @@ zotero_group_items.json
 - Neo4j Bolt: bolt://localhost:7687
 - Ollama API: http://localhost:6543
 
+## Document Uploads
+
+Use `POST /upload` with `multipart/form-data` and one or more files in the `files` field.
+
+Supported types in this implementation:
+
+- PDF
+- DOCX
+- plain text
+
+The API extracts text and metadata, chunks the text, and writes the result to Neo4j as:
+
+- one `Document` node per file
+- one `DocumentMetadata` node per file
+- one `DocumentChunk` node per chunk
+
+The current Neo4j connection used by the app inside Docker is `bolt://neo4j-kg:7687`, with credentials controlled by `NEO4J_USER` and `NEO4J_PASS`.
+
 ## Notes
 
 - Keep `.env` private. Do not commit real API keys.
 - Dependencies are installed from `pyproject.toml` during image build.
 - The DARC-EL container is started by the Dockerfile `CMD` and the compose service definition.
 - Neo4j downloads its plugins during image build, so there is no host-mounted plugin directory anymore.
+
+
+## Test file upload
+
+```powershell
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force
+.\test-upload-pdf.ps1 -PdfPath "C:\Users\rolan\interdisciplinary project\data\10.1002_adfm.202107862.pdf"
+```

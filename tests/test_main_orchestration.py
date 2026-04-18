@@ -15,6 +15,12 @@ from fastapi.testclient import TestClient
 class MainOrchestrationTests(unittest.TestCase):
     def setUp(self):
         main.app.state.download_status = main._create_default_download_status()
+        main.app.state.upload_status = {
+            "state": "idle",
+            "updated_at": None,
+            "item_count": None,
+            "message": "No uploads have been requested yet.",
+        }
 
     @patch("main.load_dotenv")
     def test_health_endpoint_returns_ok(self, load_dotenv_mock):
@@ -89,6 +95,80 @@ class MainOrchestrationTests(unittest.TestCase):
         load_dotenv_mock.assert_called_once()
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.json()["detail"], "Missing Zotero library ID")
+
+    @patch("main.load_dotenv")
+    def test_upload_endpoint_parses_files_and_writes_to_neo4j(self, load_dotenv_mock):
+        record_one = main.DocumentIngestionRecord(
+            file_name="paper-a.pdf",
+            content_type="application/pdf",
+            source_type="pdf",
+            metadata={"page_count": 1},
+            text="Alpha",
+            chunks=[main.DocumentChunk(index=0, text="Alpha")],
+            parser_name="pypdf",
+        )
+        record_two = main.DocumentIngestionRecord(
+            file_name="notes.txt",
+            content_type="text/plain",
+            source_type="text",
+            metadata={"encoding": "utf-8"},
+            text="Beta",
+            chunks=[main.DocumentChunk(index=0, text="Beta")],
+            parser_name="utf-8-text",
+        )
+
+        ingestion_service = MagicMock()
+        ingestion_service.ingest_upload.side_effect = [record_one, record_two]
+        neo4j_service = MagicMock()
+        neo4j_service.ingest_documents.return_value = [
+            {"file_name": "paper-a.pdf", "status": "completed"},
+            {"file_name": "notes.txt", "status": "completed"},
+        ]
+
+        with patch.object(main, "DocumentIngestionService", return_value=ingestion_service):
+            with patch.object(main, "Neo4jDocumentService", return_value=neo4j_service):
+                with TestClient(main.app) as client:
+                    response = client.post(
+                        "/upload",
+                        files=[
+                            ("files", ("paper-a.pdf", b"pdf-bytes", "application/pdf")),
+                            ("files", ("notes.txt", b"Beta", "text/plain")),
+                        ],
+                    )
+
+        load_dotenv_mock.assert_called_once()
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["status"], "completed")
+        self.assertEqual(payload["file_count"], 2)
+        self.assertEqual(len(payload["files"]), 2)
+        ingestion_service.ingest_upload.assert_any_call("paper-a.pdf", "application/pdf", b"pdf-bytes")
+        ingestion_service.ingest_upload.assert_any_call("notes.txt", "text/plain", b"Beta")
+        neo4j_service.ingest_documents.assert_called_once_with([record_one, record_two])
+
+        with TestClient(main.app) as client:
+            status_response = client.get("/upload/status")
+
+        self.assertEqual(status_response.status_code, 200)
+        self.assertEqual(status_response.json()["state"], "completed")
+
+    @patch("main.load_dotenv")
+    def test_upload_endpoint_rejects_unsupported_file_types(self, load_dotenv_mock):
+        ingestion_service = MagicMock()
+        ingestion_service.ingest_upload.side_effect = main.UnsupportedDocumentTypeError(
+            "Unsupported document type: application/zip"
+        )
+
+        with patch.object(main, "DocumentIngestionService", return_value=ingestion_service):
+            with TestClient(main.app) as client:
+                response = client.post(
+                    "/upload",
+                    files=[("files", ("archive.zip", b"zip", "application/zip"))],
+                )
+
+        load_dotenv_mock.assert_called_once()
+        self.assertEqual(response.status_code, 415)
+        self.assertEqual(response.json()["detail"], "Unsupported document type: application/zip")
 
     def test_require_env_exits_when_missing(self):
         with patch.dict("os.environ", {}, clear=True):
