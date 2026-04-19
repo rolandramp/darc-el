@@ -1,9 +1,7 @@
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Any, Callable
 
-import yaml
 from pydantic import (
     BaseModel,
     ConfigDict,
@@ -106,7 +104,7 @@ class OpenAIClientService(BaseModel):
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
-    llm_config_path: str = Field(default="")
+    registry_config: LLMRegistryFileConfig
     api_key: str = Field(default="")
     chat_model: str = Field(default="")
     embedding_model: str = Field(default="")
@@ -126,9 +124,9 @@ class OpenAIClientService(BaseModel):
         if not isinstance(data, dict):
             data = {}
 
-        llm_config_path = str(data.get("llm_config_path", "")).strip()
-        if not llm_config_path:
-            raise ValueError("llm_config_path must be provided")
+        registry_config = data.get("registry_config")
+        if registry_config is None:
+            raise ValueError("registry_config must be provided")
 
         api_key = str(data.get("api_key", "")).strip()
         chat_model = str(data.get("chat_model", "")).strip()
@@ -138,7 +136,6 @@ class OpenAIClientService(BaseModel):
 
         return {
             **data,
-            "llm_config_path": llm_config_path,
             "api_key": api_key,
             "chat_model": chat_model,
             "embedding_model": embedding_model,
@@ -151,7 +148,7 @@ class OpenAIClientService(BaseModel):
         if self.client_factory is None:
             self.client_factory = self._default_client_factory
 
-        registry_config = self._load_registry_config(self.llm_config_path)
+        registry_config = self.registry_config
         self._registry_config = registry_config
         self._model_definitions = dict(registry_config.models)
         self._provider_default_models = self._resolve_provider_defaults(registry_config)
@@ -172,26 +169,6 @@ class OpenAIClientService(BaseModel):
         # Initialize all configured model clients once so future services can reuse them.
         self.initialize_clients()
         return self
-
-    @staticmethod
-    def _load_registry_config(config_path: str) -> LLMRegistryFileConfig:
-        path = Path(config_path)
-        if not path.exists():
-            raise ValueError(f"LLM config file not found: {path}")
-
-        try:
-            with path.open("r", encoding="utf-8") as config_file:
-                raw_config = yaml.safe_load(config_file) or {}
-        except yaml.YAMLError as exc:
-            raise ValueError(f"Failed to parse YAML at {path}: {exc}") from exc
-
-        if not isinstance(raw_config, dict):
-            raise ValueError(f"LLM config at {path} must be a YAML object")
-
-        try:
-            return LLMRegistryFileConfig.model_validate(raw_config)
-        except ValidationError as exc:
-            raise ValueError(f"Invalid LLM config at {path}: {exc}") from exc
 
     def _resolve_provider_defaults(self, registry_config: LLMRegistryFileConfig) -> dict[str, str]:
         defaults = dict(registry_config.provider_defaults)
@@ -313,7 +290,6 @@ class OpenAIClientService(BaseModel):
             "default_model": self.default_model,
             "chat_model": self.chat_model or None,
             "embedding_model": self.embedding_model or None,
-            "llm_config_path": self.llm_config_path,
             "providers": providers_payload,
             "models": models_payload,
         }

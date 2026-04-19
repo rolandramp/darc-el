@@ -17,10 +17,13 @@ DocumentChunk = document_ingestion.DocumentChunk
 DocumentIngestionRecord = document_ingestion.DocumentIngestionRecord
 main = importlib.import_module("main")
 
+LLM_CONFIG_PATH = Path(__file__).resolve().parents[1] / "config" / "llm_models.yaml"
+
 
 class MainOrchestrationTests(unittest.TestCase):
     def setUp(self):
-        api_module.initialize_app_state(main.app)
+        registry_config = main.load_llm_registry_config(str(LLM_CONFIG_PATH))
+        api_module.initialize_app_state(main.app, registry_config)
 
     @patch("main.load_dotenv")
     def test_health_endpoint_returns_ok(self, load_dotenv_mock):

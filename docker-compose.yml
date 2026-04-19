@@ -78,7 +78,9 @@ services:
     # Persistent volume for downloaded models: map to the image cache dir used by llama.cpp
     volumes:
       - llamacpp_models:/root/.cache/llama.cpp
-    # Pass the same arguments as in the README; uses the container entrypoint and appends these flags
+    environment:
+      - HF_HOME=/root/.cache/llama.cpp
+    # Pass only the server networking arguments; model selection now comes from app-side config.
     command: ["-hf", "mistralai/Ministral-3-3B-Instruct-2512-GGUF:Q4_K_M", "--port", "8080", "--host", "0.0.0.0"]
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8080/health || exit 1"]

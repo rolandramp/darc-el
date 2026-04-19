@@ -6,12 +6,16 @@ import sys
 from contextlib import asynccontextmanager
 from pathlib import Path
 
+import yaml
 from dotenv import load_dotenv
 from fastapi import FastAPI
+from pydantic import ValidationError
 
 PACKAGE_ROOT = Path(__file__).resolve().parent / "darc-el"
 if str(PACKAGE_ROOT) not in sys.path:
     sys.path.insert(0, str(PACKAGE_ROOT))
+
+from service.llm_client_service import LLMRegistryFileConfig
 
 
 @asynccontextmanager
@@ -45,6 +49,26 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def load_llm_registry_config(config_path: str) -> LLMRegistryFileConfig:
+    path = Path(config_path)
+    if not path.exists():
+        raise ValueError(f"LLM config file not found: {path}")
+
+    try:
+        with path.open("r", encoding="utf-8") as config_file:
+            raw_config = yaml.safe_load(config_file) or {}
+    except yaml.YAMLError as exc:
+        raise ValueError(f"Failed to parse YAML at {path}: {exc}") from exc
+
+    if not isinstance(raw_config, dict):
+        raise ValueError(f"LLM config at {path} must be a YAML object")
+
+    try:
+        return LLMRegistryFileConfig.model_validate(raw_config)
+    except ValidationError as exc:
+        raise ValueError(f"Invalid LLM config at {path}: {exc}") from exc
+
+
 def require_env(name: str) -> str:
     value = os.getenv(name, "").strip()
     if not value:
@@ -59,7 +83,9 @@ def main() -> None:
 
     from api import initialize_app_state  # type: ignore[import-not-found]
 
-    initialize_app_state(app, llm_config_path=args.llm_config_path)
+    registry_config = load_llm_registry_config(args.llm_config_path)
+
+    initialize_app_state(app, registry_config=registry_config)
 
     import uvicorn
 

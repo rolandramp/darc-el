@@ -6,12 +6,14 @@ from unittest.mock import patch
 
 from core.document_ingestion import DocumentChunk, DocumentIngestionRecord
 from pydantic import ValidationError
+import yaml
+import main
 from service.document_ingestion_service import (
     DocumentIngestionService,
     UnsupportedDocumentTypeError,
 )
 from service.download_service import ZoteroDownloadService
-from service.llm_client_service import OpenAIClientService
+from service.llm_client_service import LLMRegistryFileConfig, OpenAIClientService
 from service.neo4j_document_service import Neo4jDocumentService
 
 
@@ -202,8 +204,11 @@ class PydanticValidationTests(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as temp_dir:
             config_path = self._write_llm_config(temp_dir)
+            registry_config = LLMRegistryFileConfig.model_validate(
+                yaml.safe_load(Path(config_path).read_text(encoding="utf-8"))
+            )
             service = OpenAIClientService(
-                llm_config_path=config_path,
+                registry_config=registry_config,
                 api_key=" test-key ",
                 client_factory=fake_client_factory,
             )
@@ -235,8 +240,11 @@ class PydanticValidationTests(unittest.TestCase):
     def test_llm_client_service_falls_back_to_ollama_provider(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             config_path = self._write_llm_config(temp_dir)
+            registry_config = LLMRegistryFileConfig.model_validate(
+                yaml.safe_load(Path(config_path).read_text(encoding="utf-8"))
+            )
             service = OpenAIClientService(
-                llm_config_path=config_path,
+                registry_config=registry_config,
                 default_provider="unknown",
                 client_factory=lambda base_url, api_key: {
                     "base_url": base_url,
@@ -250,7 +258,7 @@ class PydanticValidationTests(unittest.TestCase):
 
     def test_llm_client_service_raises_for_missing_yaml(self):
         with self.assertRaises(ValueError) as exc:
-            OpenAIClientService(llm_config_path="C:/missing/llm_models.yaml")
+            main.load_llm_registry_config("C:/missing/llm_models.yaml")
 
         self.assertIn("LLM config file not found", str(exc.exception))
 
