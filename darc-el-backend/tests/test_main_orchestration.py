@@ -193,6 +193,57 @@ class MainOrchestrationTests(unittest.TestCase):
         self.assertIn("base_url", payload["providers"]["ollama"])
         self.assertIn("initialized", payload["providers"]["ollama"])
 
+    @patch("main.load_dotenv")
+    def test_default_model_prompt_endpoint_returns_generated_text(self, load_dotenv_mock):
+        llm_client_service = MagicMock()
+        llm_client_service.default_model = "demo-model"
+        llm_client_service.default_provider = "ollama"
+
+        completion_message = MagicMock()
+        completion_message.content = "Generated answer"
+        completion_choice = MagicMock()
+        completion_choice.message = completion_message
+        completion = MagicMock()
+        completion.choices = [completion_choice]
+
+        client = MagicMock()
+        client.chat.completions.create.return_value = completion
+        llm_client_service.get_client.return_value = client
+
+        with TestClient(main.app) as test_client:
+            test_client.app.state.llm_client_service = llm_client_service
+            response = test_client.post(
+                "/llm/default-model",
+                json={
+                    "prompt": "Summarize this",
+                    "system_prompt": "Be concise",
+                    "temperature": 0.2,
+                },
+            )
+
+        load_dotenv_mock.assert_called_once()
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["status"], "completed")
+        self.assertEqual(payload["model"], "demo-model")
+        self.assertEqual(payload["provider"], "ollama")
+        self.assertEqual(payload["response"], "Generated answer")
+
+        llm_client_service.get_client.assert_called_once_with(model_name="demo-model")
+        client.chat.completions.create.assert_called_once()
+
+    @patch("main.load_dotenv")
+    def test_default_model_prompt_endpoint_rejects_blank_prompt(self, load_dotenv_mock):
+        with TestClient(main.app) as client:
+            response = client.post(
+                "/llm/default-model",
+                json={"prompt": "   "},
+            )
+
+        load_dotenv_mock.assert_called_once()
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json()["detail"], "prompt must not be empty")
+
     def test_require_env_exits_when_missing(self):
         with patch.dict("os.environ", {}, clear=True):
             with self.assertRaises(SystemExit) as exc:

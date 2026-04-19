@@ -43,3 +43,13 @@ docker compose up -d --build --force-recreate darc-el-ui
 
 - UI URL: `http://localhost:8081`
 - Backend URL expected by default: `http://localhost:8000`
+
+## Pages and Navigation
+
+- Monitor page: `/monitor`
+- Upload page: `/upload`
+- Model page: `/model`
+
+The UI now includes a top menu with `Monitor`, `Upload`, and `Model` items.
+The upload page is separate and forwards selected files to the backend `POST /upload` endpoint using multipart form data with the `files` field.
+The model page is separate and sends prompts to backend `POST /llm/default-model` for default model interaction.

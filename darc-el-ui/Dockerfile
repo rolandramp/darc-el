@@ -8,7 +8,7 @@ COPY darc-el-ui/pyproject.toml ./pyproject.toml
 COPY darc-el-ui/README.md ./README.md
 COPY darc-el-ui/manage.py ./manage.py
 COPY darc-el-ui/darc_el_ui ./darc_el_ui
-COPY darc-el-ui/dashboard ./dashboard
+COPY darc-el-ui/webapp ./webapp
 COPY LICENSE ./LICENSE
 
 RUN uv pip install --system --no-cache .

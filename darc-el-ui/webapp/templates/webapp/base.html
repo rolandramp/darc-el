@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    {% load static %}
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}DARC-EL UI{% endblock %}</title>
+    <link rel="stylesheet" href="{% static 'webapp/styles.css' %}">
+</head>
+<body>
+    <main class="page">
+        <nav class="menu" aria-label="Main menu">
+            <a href="{% url 'monitor' %}" class="{% if active_page == 'monitor' %}active{% endif %}">Monitor</a>
+            <a href="{% url 'upload_documents' %}" class="{% if active_page == 'upload' %}active{% endif %}">Upload</a>
+            <a href="{% url 'model_interaction' %}" class="{% if active_page == 'model' %}active{% endif %}">Model</a>
+        </nav>
+
+        {% block content %}{% endblock %}
+    </main>
+</body>
+</html>

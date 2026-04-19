@@ -1,0 +1,49 @@
+{% extends "webapp/base.html" %}
+
+{% block title %}DARC-EL UI Model Interaction{% endblock %}
+
+{% block content %}
+<h1>Model Interaction</h1>
+<p>Send a prompt to the backend default model endpoint.</p>
+<p>Backend target: {{ backend_base_url }}/llm/default-model</p>
+
+<section class="card">
+    <div class="title-row">
+        <span>Prompt Default Model</span>
+        <span class="pill">POST /llm/default-model</span>
+    </div>
+
+    <form method="post">
+        {% csrf_token %}
+        <p>
+            <label for="prompt">Prompt:</label>
+            <textarea id="prompt" class="input" name="prompt" rows="6" required>{{ prompt_value|default:"" }}</textarea>
+        </p>
+        <p>
+            <label for="system_prompt">System prompt (optional):</label>
+            <textarea id="system_prompt" class="input" name="system_prompt" rows="3">{{ system_prompt_value|default:"" }}</textarea>
+        </p>
+        <button class="btn" type="submit">Send Prompt</button>
+    </form>
+</section>
+
+{% if model_error %}
+<section class="card" style="margin-top: 1rem;">
+    <div class="title-row">
+        <span>Model Error</span>
+        <span class="pill">Failed</span>
+    </div>
+    <p class="error">{{ model_error }}</p>
+</section>
+{% endif %}
+
+{% if model_success %}
+<section class="card" style="margin-top: 1rem;">
+    <div class="title-row">
+        <span>Model Response</span>
+        <span class="pill">Success</span>
+    </div>
+    <pre>{{ model_success }}</pre>
+</section>
+{% endif %}
+{% endblock %}

@@ -33,6 +33,7 @@ docker compose up -d --build --force-recreate darc-el-backend
 - `GET /health` checks backend service health.
 - `GET /status` reports runtime status.
 - `GET /llm/status` returns non-secret LLM client configuration and initialization state.
+- `POST /llm/default-model` sends a prompt to the configured default model.
 - `POST /download` triggers literature download processing.
 - `POST /upload` ingests uploaded documents.
 
@@ -41,6 +42,17 @@ docker compose up -d --build --force-recreate darc-el-backend
 The backend initializes a shared OpenAI-compatible client registry at startup.
 Client registrations are read from [`../config/llm_models.yaml`](../config/llm_models.yaml), where each model defines provider and base URL.
 For `openrouter` providers, the backend uses the dedicated OpenRouter SDK client path during registration.
+
+## Default Model Prompt Endpoint
+
+Use `POST /llm/default-model` with JSON payload:
+
+- `prompt` (required)
+- `system_prompt` (optional)
+- `max_tokens` (optional)
+- `temperature` (optional)
+
+The endpoint invokes the configured default model through the shared client registry and returns model/provider metadata together with generated response text.
 
 ## Document Uploads
 

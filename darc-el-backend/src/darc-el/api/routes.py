@@ -6,6 +6,7 @@ from typing import Any
 from core.document_ingestion import DocumentIngestionRecord
 from core.download_request import DownloadRequest
 from fastapi import APIRouter, Body, File, HTTPException, Request, UploadFile
+from pydantic import BaseModel, Field
 from service.document_ingestion_service import (  # type: ignore[import-not-found]
     DocumentIngestionService,
     UnsupportedDocumentTypeError,
@@ -14,6 +15,13 @@ from service.download_service import ZoteroDownloadService
 from service.neo4j_document_service import Neo4jDocumentService
 
 router = APIRouter()
+
+
+class DefaultModelPromptRequest(BaseModel):
+    prompt: str
+    system_prompt: str | None = None
+    max_tokens: int | None = Field(default=None, ge=1)
+    temperature: float | None = Field(default=None, ge=0.0, le=2.0)
 
 
 def _now_iso() -> str:
@@ -26,6 +34,47 @@ def _set_download_status(request: Request, **updates: object | None) -> None:
 
 def _set_upload_status(request: Request, **updates: object | None) -> None:
     request.app.state.upload_status.update(updates)
+
+
+def _extract_completion_text(completion: Any) -> str:
+    choices = completion.get("choices") if isinstance(completion, dict) else getattr(completion, "choices", None)
+    if not choices:
+        output_text = completion.get("output_text") if isinstance(completion, dict) else getattr(completion, "output_text", None)
+        return str(output_text or "")
+
+    first_choice = choices[0]
+    if isinstance(first_choice, dict):
+        message = first_choice.get("message")
+        text = first_choice.get("text")
+    else:
+        message = getattr(first_choice, "message", None)
+        text = getattr(first_choice, "text", None)
+
+    if isinstance(message, dict):
+        content = message.get("content")
+    else:
+        content = getattr(message, "content", None)
+
+    if isinstance(content, str):
+        return content
+
+    if isinstance(content, list):
+        text_parts: list[str] = []
+        for item in content:
+            if isinstance(item, dict):
+                item_text = item.get("text")
+                if isinstance(item_text, str):
+                    text_parts.append(item_text)
+            else:
+                item_text = getattr(item, "text", None)
+                if isinstance(item_text, str):
+                    text_parts.append(item_text)
+        if text_parts:
+            return "\n".join(text_parts)
+
+    if isinstance(text, str):
+        return text
+    return ""
 
 
 @router.get(
@@ -137,6 +186,57 @@ def upload_status(request: Request) -> dict[str, object | None]:
 def llm_status(request: Request) -> dict[str, Any]:
     llm_client_service = request.app.state.llm_client_service
     return llm_client_service.status_payload()
+
+
+@router.post(
+    "/llm/default-model",
+    summary="Prompt the default model",
+    description="Sends a prompt to the configured default model and returns the generated text response.",
+    response_description="Prompt execution payload containing model metadata and generated response.",
+    responses={
+        400: {"description": "Prompt input was empty."},
+        502: {"description": "Default model invocation failed."},
+    },
+)
+def prompt_default_model(
+    request: Request,
+    prompt_request: DefaultModelPromptRequest,
+) -> dict[str, Any]:
+    prompt = prompt_request.prompt.strip()
+    if not prompt:
+        raise HTTPException(status_code=400, detail="prompt must not be empty")
+
+    llm_client_service = request.app.state.llm_client_service
+    model_name = llm_client_service.default_model
+
+    messages: list[dict[str, str]] = []
+    if prompt_request.system_prompt and prompt_request.system_prompt.strip():
+        messages.append({"role": "system", "content": prompt_request.system_prompt.strip()})
+    messages.append({"role": "user", "content": prompt})
+
+    payload: dict[str, Any] = {
+        "model": model_name,
+        "messages": messages,
+    }
+    if prompt_request.max_tokens is not None:
+        payload["max_tokens"] = prompt_request.max_tokens
+    if prompt_request.temperature is not None:
+        payload["temperature"] = prompt_request.temperature
+
+    try:
+        client = llm_client_service.get_client(model_name=model_name)
+        completion = client.chat.completions.create(**payload)
+        response_text = _extract_completion_text(completion)
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"Default model invocation failed: {exc}") from exc
+
+    return {
+        "status": "completed",
+        "provider": llm_client_service.default_provider,
+        "model": model_name,
+        "prompt": prompt,
+        "response": response_text,
+    }
 
 
 @router.post(

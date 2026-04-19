@@ -1,0 +1,34 @@
+{% extends "webapp/base.html" %}
+
+{% block title %}DARC-EL UI Monitor{% endblock %}
+
+{% block content %}
+<h1>DARC-EL UI</h1>
+<p>Backend target: {{ backend_base_url }}</p>
+
+<section class="grid">
+    <article class="card">
+        <div class="title-row">
+            <span>Backend Health</span>
+            <span class="pill">GET /health</span>
+        </div>
+        {% if health_error %}
+            <p class="error">{{ health_error }}</p>
+        {% else %}
+            <pre>{{ health_payload }}</pre>
+        {% endif %}
+    </article>
+
+    <article class="card">
+        <div class="title-row">
+            <span>LLM Registry Status</span>
+            <span class="pill">GET /llm/status</span>
+        </div>
+        {% if llm_error %}
+            <p class="error">{{ llm_error }}</p>
+        {% else %}
+            <pre>{{ llm_payload }}</pre>
+        {% endif %}
+    </article>
+</section>
+{% endblock %}

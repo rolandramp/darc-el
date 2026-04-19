@@ -1,0 +1,48 @@
+{% extends "webapp/base.html" %}
+
+{% block title %}DARC-EL UI Upload{% endblock %}
+
+{% block content %}
+<h1>Document Upload</h1>
+<p>Send one or more documents to the backend upload endpoint.</p>
+<p>Backend target: {{ backend_base_url }}/upload</p>
+
+<section class="card">
+    <div class="title-row">
+        <span>Upload Files</span>
+        <span class="pill">POST /upload</span>
+    </div>
+
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        <p>
+            <label for="files">Choose files (PDF, DOCX, TXT):</label>
+            <input id="files" class="input" type="file" name="files" multiple required>
+        </p>
+        <button class="btn" type="submit">Upload</button>
+    </form>
+</section>
+
+{% if upload_error %}
+<section class="card" style="margin-top: 1rem;">
+    <div class="title-row">
+        <span>Upload Error</span>
+        <span class="pill">Failed</span>
+    </div>
+    <p class="error">{{ upload_error }}</p>
+</section>
+{% endif %}
+
+{% if upload_success %}
+<section class="card" style="margin-top: 1rem;">
+    <div class="title-row">
+        <span>Upload Result</span>
+        <span class="pill">Success</span>
+    </div>
+    {% if selected_file_count %}
+    <p class="success">Selected files: {{ selected_file_count }}</p>
+    {% endif %}
+    <pre>{{ upload_success }}</pre>
+</section>
+{% endif %}
+{% endblock %}

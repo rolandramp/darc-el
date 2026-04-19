@@ -21,7 +21,7 @@ services:
       dockerfile: darc-el-ui/Dockerfile
     container_name: darc-el-ui
     environment:
-      - BACKEND_BASE_URL=http://darc-el:8000
+      - BACKEND_BASE_URL=http://darc-el-backend:8000
       - DJANGO_DEBUG=true
     depends_on:
       darc-el-backend:
