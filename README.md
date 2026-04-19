@@ -48,50 +48,54 @@ The diagram below shows the deployment topology and service boundaries.
 
 ```mermaid
 flowchart TD
-	User[User Browser or Client]
+    User[User Browser or Client]
 
-	subgraph Stack[Docker Compose Stack]
-		UI[darc-el-ui\nDjango UI]
-		API[darc-el-backend\nFastAPI Backend]
-		KG[neo4j-kg\nNeo4j Graph]
-		OLL[ollama-backend\nOllama]
-		LLAMA[llama-cpp-backend\nGPU profile optional]
-	end
+    subgraph Stack[Docker Compose Stack]
+        UI[darc-el-ui\nDjango UI]
+        API[darc-el-backend\nFastAPI Backend]
+        KG[neo4j-kg\nNeo4j Graph]
+        OLL[ollama-backend\nContainer: ollama-llm]
+        LLAMA[llama-cpp-backend\nContainer: llama-cpp-llm\nGPU profile optional]
+    end
 
-	ZOT[Zotero API]
-	OR[OpenRouter Cloud]
+    ZOT[Zotero API]
+    OR[OpenRouter Cloud]
 
-	User --> UI
-	User --> API
-	UI --> API
-	API --> KG
-	API --> OLL
-	API --> LLAMA
-	API --> OR
-	ZOT --> API
+    User --> UI
+    User --> API
+    UI -->|BACKEND_BASE_URL| API
+    API -->|bolt://neo4j-kg:7687| KG
+    API -->|Ollama model calls| OLL
+    API -->|llama.cpp model calls| LLAMA
+    API -->|openrouter provider calls| OR
+    API -->|/download| ZOT
 ```
 
 The runtime flow below summarizes how backend services process requests, route LLM calls, and persist graph data.
 
 ```mermaid
 flowchart TD
-	Request[Client or UI Request] --> API[FastAPI Backend]
+	UIReq[Django UI Request] --> API[FastAPI Backend]
+	ClientReq[Direct Client Request] --> API
 
-	API --> ING[Document Ingestion Service]
-	API --> DLS[Download Service]
-	API --> STATUS[Status and Health Handlers]
+	API --> DOC[DocumentService]
+	API --> DL[ZoteroDownloadService]
+	API --> LLM[OpenAIClientService\nShared model registry]
+	API --> STATUS[Health/Status Handlers]
 
-	ING --> REG[Shared LLM Client Registry]
-	DLS --> REG
+	DOC -->|POST /upload parse + chunk| DOC
+	DOC -->|GET /documents| NEO[(Neo4j Graph)]
+	DOC -->|DELETE /documents/{file_name}\ndelete all matching file_name| NEO
+	DOC -->|ingest records| NEO
 
-	REG --> OLLP[Ollama Provider]
-	REG --> LLP[llama.cpp Provider]
-	REG --> ORP[OpenRouter Provider]
+	DL -->|POST /download| ZOT[Zotero API]
 
-	ING --> NEO[(Neo4j Graph)]
-	DLS --> NEO
+	API -->|POST /llm/default-model| LLM
+	LLM --> OLLP[Ollama Provider]
+	LLM --> LLMP[llama.cpp Provider]
+	LLM --> ORP[OpenRouter Provider]
 
-	STATUS --> CFG[Non-secret Runtime Configuration]
+	STATUS --> CFG[GET /health, /status, /upload/status, /llm/status]
 ```
 
 Backend API endpoint details and upload internals are maintained in `darc-el-backend/README.md`.
