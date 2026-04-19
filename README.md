@@ -8,6 +8,9 @@ Reliable evaluation of electrocatalysts requires consistent reporting of key pro
 
 The API now also accepts document uploads for ingestion into Neo4j. Uploaded files are parsed by type, extracted into a transport object, chunked for later retrieval, and stored as separate graph nodes.
 
+Backend implementation details, API endpoint behavior, and upload internals are documented in `darc-el-backend/README.md`.
+UI runtime, Django configuration, and frontend integration details are documented in `darc-el-ui/README.md`.
+
 ## Author
 
 - Roland Ramp
@@ -32,57 +35,67 @@ This project is licensed under the MIT License. See [LICENSE](LICENSE).
 - `.env` stores runtime environment variables
 - `.env.example` provides a safe template without secrets
 
+## Service Documentation
+
+- Backend service documentation: [`darc-el-backend/README.md`](darc-el-backend/README.md)
+- UI service documentation: [`darc-el-ui/README.md`](darc-el-ui/README.md)
+
 ## System Architecture
 
-DARC-EL runs as a service-oriented API that orchestrates bibliography downloads, document ingestion, and LLM provider routing through a shared registry configured in `config/llm_models.yaml`.
+DARC-EL runs as a compose-managed multi-service stack. The backend orchestrates bibliography downloads, document ingestion, and LLM provider routing through a shared registry configured in `config/llm_models.yaml`, while the Django UI consumes backend APIs.
+
+The diagram below shows the deployment topology and service boundaries.
 
 ```mermaid
 flowchart TD
-	Client[User or Client] --> API[DARC-EL API]
-	Zotero[Zotero API] -->|external download source| API
+	User[User Browser or Client]
 
-	subgraph Providers
-		Ollama[Ollama]
-		Llama[llama.cpp backend]
-		OpenRouter[OpenRouter Cloud]
+	subgraph Stack[Docker Compose Stack]
+		UI[darc-el-ui\nDjango UI]
+		API[darc-el-backend\nFastAPI Backend]
+		KG[neo4j-kg\nNeo4j Graph]
+		OLL[ollama-backend\nOllama]
+		LLAMA[llama-cpp-backend\nGPU profile optional]
 	end
 
-	API --> Neo4j[(Neo4j)]
-	API --> Ollama
-	API --> Llama
-	API --> OpenRouter
-	UI[Django UI] --> API
+	ZOT[Zotero API]
+	OR[OpenRouter Cloud]
+
+	User --> UI
+	User --> API
+	UI --> API
+	API --> KG
+	API --> OLL
+	API --> LLAMA
+	API --> OR
+	ZOT --> API
 ```
 
-The runtime flow below shows how API endpoints map to internal services, shared LLM routing, and graph persistence.
+The runtime flow below summarizes how backend services process requests, route LLM calls, and persist graph data.
 
 ```mermaid
 flowchart TD
-	Client[Client]
+	Request[Client or UI Request] --> API[FastAPI Backend]
 
-	Client --> U[POST upload]
-	Client --> D[POST download]
-	Client --> LS[GET llm status]
-	Client --> S[GET status]
+	API --> ING[Document Ingestion Service]
+	API --> DLS[Download Service]
+	API --> STATUS[Status and Health Handlers]
 
-	U --> API[DARC-EL API]
-	D --> API
-	LS --> API
-	S --> API
+	ING --> REG[Shared LLM Client Registry]
+	DLS --> REG
 
-	API --> DIS[Document Ingestion Service]
-	API --> DS[Download Service]
-
-	DIS --> REG[Shared LLM Client Registry]
-	DS --> REG
-
-	REG --> OP[Ollama Provider]
-	REG --> LP[llama.cpp backend]
+	REG --> OLLP[Ollama Provider]
+	REG --> LLP[llama.cpp Provider]
 	REG --> ORP[OpenRouter Provider]
 
-	DIS --> Neo4j[(Neo4j)]
-	DS --> Neo4j
+	ING --> NEO[(Neo4j Graph)]
+	DLS --> NEO
+
+	STATUS --> CFG[Non-secret Runtime Configuration]
 ```
+
+Backend API endpoint details and upload internals are maintained in `darc-el-backend/README.md`.
+UI runtime and integration behavior are maintained in `darc-el-ui/README.md`.
 
 ## 1. Configure Environment Variables
 
@@ -107,17 +120,7 @@ From the project root, build the services:
 docker compose build
 ```
 
-To build only the backend service:
-
-```bash
-docker compose build darc-el
-```
-
-To build only the UI service:
-
-```bash
-docker compose build darc-el-ui
-```
+For service-specific build commands, see the backend and UI README files.
 
 ## 3. Run the Stack
 
@@ -127,28 +130,10 @@ Start the full stack:
 docker compose up
 ```
 
-Or run only the application service:
-
-```bash
-docker compose up darc-el
-```
-
-Or run only the UI service:
-
-```bash
-docker compose up darc-el-ui
-```
-
 If you want to rebuild before starting:
 
 ```bash
 docker compose up --build
-```
-
-To recreate the service:
-
-```bash
-docker compose up -d --build --force-recreate darc-el
 ```
 
 To start up everthing with GPU:
@@ -167,73 +152,17 @@ zotero_group_items.json
 
 ## Access the Services
 
-- DARC-EL API: http://localhost:8000
+- DARC-EL API (FastApi): http://localhost:8000
 - DARC-EL UI (Django): http://localhost:8081
 - Neo4j Browser: http://localhost:7474
 - Neo4j Bolt: bolt://localhost:7687
 - Ollama API: http://localhost:6543
 
-## Shared LLM Clients
+For backend endpoints, LLM client configuration, upload behavior, linting, and upload test scripts, see [`darc-el-backend/README.md`](darc-el-backend/README.md).
 
-The application initializes a shared OpenAI-compatible client registry at startup. Clients are registered by model name from `config/llm_models.yaml`, where each model entry defines provider and base URL.
-For `openrouter` providers, the service uses the dedicated OpenRouter SDK client path during registration.
-
-Start the backend app with `python darc-el-backend/src/main.py --llm-config-path config/llm_models.yaml`.
-Start the UI app with `python darc-el-ui/manage.py runserver 0.0.0.0:8081`.
-
-Use `GET /llm/status` to inspect non-secret client configuration and initialization state.
-
-## Document Uploads
-
-Use `POST /upload` with `multipart/form-data` and one or more files in the `files` field.
-
-Supported types in this implementation:
-
-- PDF
-- DOCX
-- plain text
-
-The API extracts text and metadata, chunks the text, and writes the result to Neo4j as:
-
-- one `Document` node per file
-- one `DocumentMetadata` node per file
-- one `DocumentChunk` node per chunk
-
-The current Neo4j connection used by the app inside Docker is `bolt://neo4j-kg:7687`, with credentials controlled by `NEO4J_USER` and `NEO4J_PASS`.
+For UI local runtime and integration settings, see [`darc-el-ui/README.md`](darc-el-ui/README.md).
 
 ## Notes
 
 - Keep `.env` private. Do not commit real API keys.
-- Dependencies are installed from `pyproject.toml` during image build.
-- The DARC-EL container is started by the Dockerfile `CMD` and the compose service definition.
-- Neo4j downloads its plugins during image build, so there is no host-mounted plugin directory anymore.
-
-## Static Analysis
-
-This project uses Ruff for Python static code analysis and linting.
-
-Install development dependencies:
-
-```bash
-pip install -e .[dev]
-```
-
-Run lint checks:
-
-```bash
-make lint
-```
-
-Run lint with auto-fixes:
-
-```bash
-make lint-fix
-```
-
-
-## Test file upload
-
-```powershell
-Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force
-.\test-upload-pdf.ps1 -PdfPath "C:\Users\rolan\interdisciplinary project\data\10.1002_adfm.202107862.pdf"
-```
+- Dependencies are installed from each service's `pyproject.toml` during image build.
