@@ -1,17 +1,20 @@
+import importlib
 import sys
 import unittest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+from fastapi.testclient import TestClient
+
 SRC_ROOT = Path(__file__).resolve().parents[1] / "src"
 if str(SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(SRC_ROOT))
 
-from api import routes as api_routes
-from core.document_ingestion import DocumentChunk, DocumentIngestionRecord
-from fastapi.testclient import TestClient
-
-import main
+api_routes = importlib.import_module("api.routes")
+document_ingestion = importlib.import_module("core.document_ingestion")
+DocumentChunk = document_ingestion.DocumentChunk
+DocumentIngestionRecord = document_ingestion.DocumentIngestionRecord
+main = importlib.import_module("main")
 
 
 class MainOrchestrationTests(unittest.TestCase):

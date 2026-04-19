@@ -12,11 +12,6 @@ PACKAGE_ROOT = Path(__file__).resolve().parent / "darc-el"
 if str(PACKAGE_ROOT) not in sys.path:
     sys.path.insert(0, str(PACKAGE_ROOT))
 
-from api import (  # type: ignore[import-not-found]
-    initialize_app_state,
-    router,
-)
-
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -26,10 +21,19 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="DARC-EL Zotero Download API", lifespan=lifespan)
-initialize_app_state(app)
 
 
-app.include_router(router)
+def configure_app(app: FastAPI) -> None:
+    from api import (  # type: ignore[import-not-found]
+        initialize_app_state,
+        router,
+    )
+
+    initialize_app_state(app)
+    app.include_router(router)
+
+
+configure_app(app)
 
 
 def require_env(name: str) -> str:

@@ -1,8 +1,15 @@
 from __future__ import annotations
 
-from api.routes import router
+from api.routes import router as router
 from fastapi import FastAPI
 from service.llm_client_service import OpenAIClientService
+
+__all__ = [
+    "create_default_download_status",
+    "create_default_upload_status",
+    "initialize_app_state",
+    "router",
+]
 
 
 def create_default_download_status() -> dict[str, object | None]:

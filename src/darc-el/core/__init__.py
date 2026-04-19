@@ -1,3 +1,9 @@
-from core.document_ingestion import DocumentChunk, DocumentIngestionRecord
+from .document_ingestion import DocumentChunk as DocumentChunk
+from .document_ingestion import DocumentIngestionRecord as DocumentIngestionRecord
+from .download_request import DownloadRequest as DownloadRequest
 
-from .download_request import DownloadRequest
+__all__ = [
+	"DocumentChunk",
+	"DocumentIngestionRecord",
+	"DownloadRequest",
+]
