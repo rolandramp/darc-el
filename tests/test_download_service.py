@@ -125,6 +125,7 @@ class PydanticValidationTests(unittest.TestCase):
                     "provider_defaults:",
                     '  ollama: "ministral-3:3b"',
                     '  llama_cpp: "mistralai/Ministral-3-3B-Instruct-2512-GGUF:Q4_K_M"',
+                    '  openrouter: "openrouter/auto"',
                     "models:",
                     '  "ministral-3:3b":',
                     "    provider: ollama",
@@ -135,6 +136,9 @@ class PydanticValidationTests(unittest.TestCase):
                     '  "mistralai/Ministral-3-3B-Instruct-2512-GGUF:Q4_K_M":',
                     "    provider: llama.cpp",
                     "    base_url: http://llama-cpp:8080",
+                    '  "openrouter/auto":',
+                    "    provider: openrouter",
+                    "    base_url: https://openrouter.ai/api/v1",
                     "",
                 ]
             ),
@@ -223,6 +227,7 @@ class PydanticValidationTests(unittest.TestCase):
                 ("http://ollama:11434/v1", "test-key"),
                 ("http://ollama:11434/v1", "test-key"),
                 ("http://llama-cpp:8080/v1", "test-key"),
+                ("https://openrouter.ai/api/v1", "test-key"),
             ],
         )
         self.assertEqual(
@@ -233,9 +238,14 @@ class PydanticValidationTests(unittest.TestCase):
             service.get_llama_cpp_client(),
             {"base_url": "http://llama-cpp:8080/v1", "api_key": "test-key"},
         )
+        self.assertEqual(
+            service.get_openrouter_client(),
+            {"base_url": "https://openrouter.ai/api/v1", "api_key": "test-key"},
+        )
         status_payload = service.status_payload()
         self.assertIn("models", status_payload)
         self.assertIn("ministral-3:3b", status_payload["models"])
+        self.assertIn("openrouter", status_payload["providers"])
 
     def test_llm_client_service_falls_back_to_ollama_provider(self):
         with tempfile.TemporaryDirectory() as temp_dir:

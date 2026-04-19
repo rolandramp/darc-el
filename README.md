@@ -47,6 +47,7 @@ Optional:
 ZOTERO_OUTPUT_FILE=zotero_group_items.json
 
 LLM model registration is now read from `config/llm_models.yaml`. Keep model names and provider-model mappings in that YAML file.
+You can also register an optional OpenRouter model in the same YAML using `provider: openrouter` and `api_key: ${OPENROUTER_API_KEY}`.
 
 ## 2. Build with Docker Compose
 
@@ -112,6 +113,7 @@ zotero_group_items.json
 ## Shared LLM Clients
 
 The application initializes a shared OpenAI-compatible client registry at startup. Clients are registered by model name from `config/llm_models.yaml`, where each model entry defines provider and base URL.
+For `openrouter` providers, the service uses the dedicated OpenRouter SDK client path during registration.
 
 Start the app with `python src/main.py --llm-config-path config/llm_models.yaml`.
 

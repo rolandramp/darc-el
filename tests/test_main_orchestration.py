@@ -188,6 +188,7 @@ class MainOrchestrationTests(unittest.TestCase):
         self.assertIn("default_model", payload)
         self.assertIn("ollama", payload["providers"])
         self.assertIn("llama_cpp", payload["providers"])
+        self.assertIn("openrouter", payload["providers"])
         self.assertIn("default_model", payload["providers"]["ollama"])
         self.assertIn("base_url", payload["providers"]["ollama"])
         self.assertIn("initialized", payload["providers"]["ollama"])

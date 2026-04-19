@@ -13,7 +13,7 @@ from pydantic import (
 )
 
 ProviderClientFactory = Callable[[str, str], Any]
-SUPPORTED_PROVIDERS = {"ollama", "llama_cpp", "openai", "anthropic", "azure"}
+SUPPORTED_PROVIDERS = {"ollama", "llama_cpp", "openai", "anthropic", "azure", "openrouter"}
 
 
 def normalize_provider(value: str) -> str:
@@ -28,6 +28,8 @@ def normalize_provider(value: str) -> str:
         return "anthropic"
     if normalized == "azure":
         return "azure"
+    if normalized in {"openrouter", "open_router"}:
+        return "openrouter"
     return ""
 
 
@@ -145,9 +147,6 @@ class OpenAIClientService(BaseModel):
 
     @model_validator(mode="after")
     def initialize(self) -> "OpenAIClientService":
-        if self.client_factory is None:
-            self.client_factory = self._default_client_factory
-
         registry_config = self.registry_config
         self._registry_config = registry_config
         self._model_definitions = dict(registry_config.models)
@@ -187,10 +186,19 @@ class OpenAIClientService(BaseModel):
         return f"{normalized}/v1"
 
     @staticmethod
-    def _default_client_factory(base_url: str, api_key: str) -> Any:
+    def _build_openai_compatible_client(base_url: str, api_key: str) -> Any:
         from openai import OpenAI  # type: ignore[import-not-found]
 
         return OpenAI(base_url=base_url, api_key=api_key)
+
+    @staticmethod
+    def _build_openrouter_client(base_url: str, api_key: str) -> Any:
+        from openrouter import OpenRouter  # type: ignore[import-not-found]
+
+        try:
+            return OpenRouter(api_key=api_key, base_url=base_url)
+        except TypeError:
+            return OpenRouter(api_key=api_key)
 
     def initialize_clients(self) -> None:
         self._model_errors = {}
@@ -200,15 +208,16 @@ class OpenAIClientService(BaseModel):
             self._model_client_registry[model_name] = self._build_client(model_name)
 
     def _build_client(self, model_name: str) -> Any | None:
-        if self.client_factory is None:
-            raise ValueError("client_factory must be configured")
-
         model_definition = self._model_definitions[model_name]
         base_url = self._normalize_base_url(model_definition.base_url)
         api_key = model_definition.api_key or self.api_key or "not-needed"
 
         try:
-            return self.client_factory(base_url, api_key)
+            if self.client_factory is not None:
+                return self.client_factory(base_url, api_key)
+            if model_definition.provider == "openrouter":
+                return self._build_openrouter_client(base_url, api_key)
+            return self._build_openai_compatible_client(base_url, api_key)
         except Exception as exc:
             self._model_errors[model_name] = str(exc)
             return None
@@ -253,6 +262,9 @@ class OpenAIClientService(BaseModel):
 
     def get_llama_cpp_client(self) -> Any:
         return self.get_client(provider="llama_cpp")
+
+    def get_openrouter_client(self) -> Any:
+        return self.get_client(provider="openrouter")
 
     def status_payload(self) -> dict[str, Any]:
         models_payload: dict[str, dict[str, Any]] = {}
