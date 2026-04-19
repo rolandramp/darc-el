@@ -34,6 +34,57 @@ This project is licensed under the MIT License. See [LICENSE](LICENSE).
 - `.env` stores runtime environment variables
 - `.env.example` provides a safe template without secrets
 
+## System Architecture
+
+DARC-EL runs as a service-oriented API that orchestrates bibliography downloads, document ingestion, and LLM provider routing through a shared registry configured in `config/llm_models.yaml`.
+
+```mermaid
+flowchart TD
+	Client[User or Client] --> API[DARC-EL API]
+	Zotero[Zotero API] -->|external download source| API
+
+	subgraph Providers
+		Ollama[Ollama]
+		Llama[llama.cpp backend]
+		OpenRouter[OpenRouter Cloud]
+	end
+
+	API --> Neo4j[(Neo4j)]
+	API --> Ollama
+	API --> Llama
+	API --> OpenRouter
+```
+
+The runtime flow below shows how API endpoints map to internal services, shared LLM routing, and graph persistence.
+
+```mermaid
+flowchart TD
+	Client[Client]
+
+	Client --> U[POST upload]
+	Client --> D[POST download]
+	Client --> LS[GET llm status]
+	Client --> S[GET status]
+
+	U --> API[DARC-EL API]
+	D --> API
+	LS --> API
+	S --> API
+
+	API --> DIS[Document Ingestion Service]
+	API --> DS[Download Service]
+
+	DIS --> REG[Shared LLM Client Registry]
+	DS --> REG
+
+	REG --> OP[Ollama Provider]
+	REG --> LP[llama.cpp backend]
+	REG --> ORP[OpenRouter Provider]
+
+	DIS --> Neo4j[(Neo4j)]
+	DS --> Neo4j
+```
+
 ## 1. Configure Environment Variables
 
 Copy `.env.example` to `.env` and set your own values:
