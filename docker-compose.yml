@@ -45,14 +45,14 @@ services:
       dockerfile: Dockerfile
     container_name: ollama-llm
     environment:
-      - OLLAMA_MODEL=${LLM_MODEL}
-      - OLLAMA_EMBED=${LLM_EMBED}
+      - OLLAMA_MODEL=ministral-3:3b
+      - OLLAMA_EMBED=nomic-embed-text
     volumes:
       - ollama_data:/root/.ollama
     ports:
       - "6543:11434"
     healthcheck:
-      test: ["CMD-SHELL", "ollama list | grep ${LLM_MODEL} || exit 1"]
+      test: ["CMD-SHELL", "ollama list | grep ministral-3:3b || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -79,7 +79,7 @@ services:
     volumes:
       - llamacpp_models:/root/.cache/llama.cpp
     # Pass the same arguments as in the README; uses the container entrypoint and appends these flags
-    command: ["-hf", "${LLAMA_CPP_MODEL}", "--port", "8080", "--host", "0.0.0.0"]
+    command: ["-hf", "mistralai/Ministral-3-3B-Instruct-2512-GGUF:Q4_K_M", "--port", "8080", "--host", "0.0.0.0"]
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8080/health || exit 1"]
       interval: 30s

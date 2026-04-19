@@ -112,6 +112,34 @@ class DownloadServiceTests(unittest.TestCase):
 
 
 class PydanticValidationTests(unittest.TestCase):
+    def _write_llm_config(self, directory: str) -> str:
+        config_path = Path(directory) / "llm_models.yaml"
+        config_path.write_text(
+            "\n".join(
+                [
+                    "default_provider: llama.cpp",
+                    'default_model: "ministral-3:3b"',
+                    'default_embedding_model: "nomic-embed-text"',
+                    "provider_defaults:",
+                    '  ollama: "ministral-3:3b"',
+                    '  llama_cpp: "mistralai/Ministral-3-3B-Instruct-2512-GGUF:Q4_K_M"',
+                    "models:",
+                    '  "ministral-3:3b":',
+                    "    provider: ollama",
+                    "    base_url: http://ollama:11434",
+                    '  "nomic-embed-text":',
+                    "    provider: ollama",
+                    "    base_url: http://ollama:11434",
+                    '  "mistralai/Ministral-3-3B-Instruct-2512-GGUF:Q4_K_M":',
+                    "    provider: llama.cpp",
+                    "    base_url: http://llama-cpp:8080",
+                    "",
+                ]
+            ),
+            encoding="utf-8",
+        )
+        return str(config_path)
+
     def test_document_chunk_coerces_index_type(self):
         chunk = DocumentChunk.model_validate({"index": "7", "text": "chunk text"})
         self.assertEqual(chunk.index, 7)
@@ -165,58 +193,66 @@ class PydanticValidationTests(unittest.TestCase):
 
         self.assertIn("Missing Neo4j password", str(exc.exception))
 
-    def test_llm_client_service_uses_env_defaults(self):
+    def test_llm_client_service_uses_yaml_registry(self):
         created_clients: list[tuple[str, str]] = []
 
         def fake_client_factory(base_url: str, api_key: str):
             created_clients.append((base_url, api_key))
             return {"base_url": base_url, "api_key": api_key}
 
-        with patch.dict(
-            "os.environ",
-            {
-                "LLM_URL": " http://ollama:11434 ",
-                "LLAMA_CPP_URL": " http://llama-cpp:8080 ",
-                "LLM_KEY": " test-key ",
-                "LLM_MODEL": "ministral",
-                "LLM_EMBED": "nomic-embed-text",
-                "LLM_DEFAULT_PROVIDER": "llama.cpp",
-            },
-            clear=True,
-        ):
-            service = OpenAIClientService(client_factory=fake_client_factory)
+        with tempfile.TemporaryDirectory() as temp_dir:
+            config_path = self._write_llm_config(temp_dir)
+            service = OpenAIClientService(
+                llm_config_path=config_path,
+                api_key=" test-key ",
+                client_factory=fake_client_factory,
+            )
 
         self.assertEqual(service.default_provider, "llama_cpp")
-        self.assertEqual(service.chat_model, "ministral")
+        self.assertEqual(service.default_model, "ministral-3:3b")
+        self.assertEqual(service.chat_model, "ministral-3:3b")
         self.assertEqual(service.embedding_model, "nomic-embed-text")
         self.assertEqual(
             created_clients,
             [
                 ("http://ollama:11434/v1", "test-key"),
+                ("http://ollama:11434/v1", "test-key"),
                 ("http://llama-cpp:8080/v1", "test-key"),
             ],
         )
         self.assertEqual(
-            service.get_ollama_client(),
+            service.get_client(model_name="ministral-3:3b"),
             {"base_url": "http://ollama:11434/v1", "api_key": "test-key"},
         )
         self.assertEqual(
             service.get_llama_cpp_client(),
             {"base_url": "http://llama-cpp:8080/v1", "api_key": "test-key"},
         )
+        status_payload = service.status_payload()
+        self.assertIn("models", status_payload)
+        self.assertIn("ministral-3:3b", status_payload["models"])
 
     def test_llm_client_service_falls_back_to_ollama_provider(self):
-        service = OpenAIClientService(
-            default_provider="unknown",
-            client_factory=lambda base_url, api_key: {
-                "base_url": base_url,
-                "api_key": api_key,
-            },
-        )
+        with tempfile.TemporaryDirectory() as temp_dir:
+            config_path = self._write_llm_config(temp_dir)
+            service = OpenAIClientService(
+                llm_config_path=config_path,
+                default_provider="unknown",
+                client_factory=lambda base_url, api_key: {
+                    "base_url": base_url,
+                    "api_key": api_key,
+                },
+            )
 
-        self.assertEqual(service.default_provider, "ollama")
+        self.assertEqual(service.default_provider, "llama_cpp")
         selected_client = service.get_client()
-        self.assertEqual(selected_client["base_url"], "http://ollama-llm:11434/v1")
+        self.assertEqual(selected_client["base_url"], "http://ollama:11434/v1")
+
+    def test_llm_client_service_raises_for_missing_yaml(self):
+        with self.assertRaises(ValueError) as exc:
+            OpenAIClientService(llm_config_path="C:/missing/llm_models.yaml")
+
+        self.assertIn("LLM config file not found", str(exc.exception))
 
 
 if __name__ == "__main__":

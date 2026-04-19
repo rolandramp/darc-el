@@ -1,0 +1,16 @@
+default_provider: ollama
+default_model: "ministral-3:3b"
+default_embedding_model: "nomic-embed-text"
+provider_defaults:
+  ollama: "ministral-3:3b"
+  llama_cpp: "mistralai/Ministral-3-3B-Instruct-2512-GGUF:Q4_K_M"
+models:
+  "ministral-3:3b":
+    provider: ollama
+    base_url: http://ollama-llm:11434
+  "nomic-embed-text":
+    provider: ollama
+    base_url: http://ollama-llm:11434
+  "mistralai/Ministral-3-3B-Instruct-2512-GGUF:Q4_K_M":
+    provider: llama_cpp
+    base_url: http://llama-cpp-backend:8080

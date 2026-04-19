@@ -11,6 +11,7 @@ if str(SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(SRC_ROOT))
 
 api_routes = importlib.import_module("api.routes")
+api_module = importlib.import_module("api")
 document_ingestion = importlib.import_module("core.document_ingestion")
 DocumentChunk = document_ingestion.DocumentChunk
 DocumentIngestionRecord = document_ingestion.DocumentIngestionRecord
@@ -19,7 +20,7 @@ main = importlib.import_module("main")
 
 class MainOrchestrationTests(unittest.TestCase):
     def setUp(self):
-        main.initialize_app_state(main.app)
+        api_module.initialize_app_state(main.app)
 
     @patch("main.load_dotenv")
     def test_health_endpoint_returns_ok(self, load_dotenv_mock):
@@ -180,8 +181,11 @@ class MainOrchestrationTests(unittest.TestCase):
         payload = response.json()
         self.assertIn(payload["default_provider"], ["ollama", "llama_cpp"])
         self.assertIn("providers", payload)
+        self.assertIn("models", payload)
+        self.assertIn("default_model", payload)
         self.assertIn("ollama", payload["providers"])
         self.assertIn("llama_cpp", payload["providers"])
+        self.assertIn("default_model", payload["providers"]["ollama"])
         self.assertIn("base_url", payload["providers"]["ollama"])
         self.assertIn("initialized", payload["providers"]["ollama"])
 
