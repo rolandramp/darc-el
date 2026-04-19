@@ -10,6 +10,6 @@ COPY src ./src
 
 RUN uv pip install --system --no-cache .
 
-CMD ["python", "src/main.py"]
+CMD ["python", "src/main.py", "--llm-config-path", "/app/config/llm_models.yaml"]
 
 

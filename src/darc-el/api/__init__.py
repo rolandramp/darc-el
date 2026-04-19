@@ -33,7 +33,7 @@ def create_default_upload_status() -> dict[str, object | None]:
     }
 
 
-def initialize_app_state(app: FastAPI) -> None:
+def initialize_app_state(app: FastAPI, llm_config_path: str) -> None:
     app.state.download_status = create_default_download_status()
     app.state.upload_status = create_default_upload_status()
-    app.state.llm_client_service = OpenAIClientService()
+    app.state.llm_client_service = OpenAIClientService(llm_config_path=llm_config_path)

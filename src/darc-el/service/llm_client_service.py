@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 from pathlib import Path
 from typing import Any, Callable
 
@@ -16,8 +15,7 @@ from pydantic import (
 )
 
 ProviderClientFactory = Callable[[str, str], Any]
-SUPPORTED_PROVIDERS = {"ollama", "llama_cpp"}
-DEFAULT_LLM_CONFIG_PATH = Path(__file__).resolve().parents[3] / "config" / "llm_models.yaml"
+SUPPORTED_PROVIDERS = {"ollama", "llama_cpp", "openai", "anthropic", "azure"}
 
 
 def normalize_provider(value: str) -> str:
@@ -26,12 +24,19 @@ def normalize_provider(value: str) -> str:
         return "llama_cpp"
     if normalized == "ollama":
         return "ollama"
+    if normalized == "openai":
+        return "openai"
+    if normalized == "anthropic":
+        return "anthropic"
+    if normalized == "azure":
+        return "azure"
     return ""
 
 
 class LLMModelDefinition(BaseModel):
     provider: str
     base_url: str
+    api_key: str = Field(default="")
 
     @field_validator("provider", mode="before")
     @classmethod
@@ -48,6 +53,11 @@ class LLMModelDefinition(BaseModel):
         if not normalized:
             raise ValueError("base_url must not be empty")
         return normalized
+
+    @field_validator("api_key", mode="before")
+    @classmethod
+    def validate_api_key(cls, value: Any) -> str:
+        return str(value or "").strip()
 
 
 class LLMRegistryFileConfig(BaseModel):
@@ -112,14 +122,15 @@ class OpenAIClientService(BaseModel):
 
     @model_validator(mode="before")
     @classmethod
-    def apply_defaults_from_env(cls, data: Any) -> Any:
+    def apply_defaults(cls, data: Any) -> Any:
         if not isinstance(data, dict):
             data = {}
 
-        llm_config_path = str(
-            data.get("llm_config_path") or os.getenv("LLM_CONFIG_PATH", str(DEFAULT_LLM_CONFIG_PATH))
-        ).strip() or str(DEFAULT_LLM_CONFIG_PATH)
-        api_key = str(data.get("api_key") or os.getenv("LLM_KEY", "")).strip()
+        llm_config_path = str(data.get("llm_config_path", "")).strip()
+        if not llm_config_path:
+            raise ValueError("llm_config_path must be provided")
+
+        api_key = str(data.get("api_key", "")).strip()
         chat_model = str(data.get("chat_model", "")).strip()
         embedding_model = str(data.get("embedding_model", "")).strip()
         default_provider = str(data.get("default_provider", "")).strip()
@@ -217,7 +228,7 @@ class OpenAIClientService(BaseModel):
 
         model_definition = self._model_definitions[model_name]
         base_url = self._normalize_base_url(model_definition.base_url)
-        api_key = self.api_key or "not-needed"
+        api_key = model_definition.api_key or self.api_key or "not-needed"
 
         try:
             return self.client_factory(base_url, api_key)

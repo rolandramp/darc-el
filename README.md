@@ -46,8 +46,6 @@ Optional:
 
 ZOTERO_OUTPUT_FILE=zotero_group_items.json
 
-If you use the Neo4j or LLM services directly, also review the values for `NEO4J_*`, `LLM_*`, and `LLAMA_CPP_*` in `.env`.
-
 LLM model registration is now read from `config/llm_models.yaml`. Keep model names and provider-model mappings in that YAML file.
 
 ## 2. Build with Docker Compose
@@ -115,7 +113,7 @@ zotero_group_items.json
 
 The application initializes a shared OpenAI-compatible client registry at startup. Clients are registered by model name from `config/llm_models.yaml`, where each model entry defines provider and base URL.
 
-By default, the app loads `config/llm_models.yaml`. You can override this with `LLM_CONFIG_PATH`.
+Start the app with `python src/main.py --llm-config-path config/llm_models.yaml`.
 
 Use `GET /llm/status` to inspect non-secret client configuration and initialization state.
 

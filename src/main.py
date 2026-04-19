@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import argparse
 import os
 import sys
 from contextlib import asynccontextmanager
@@ -20,20 +21,28 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(title="DARC-EL Zotero Download API", lifespan=lifespan)
+app = FastAPI(title="DARC-EL Service API", lifespan=lifespan)
 
 
 def configure_app(app: FastAPI) -> None:
     from api import (  # type: ignore[import-not-found]
-        initialize_app_state,
         router,
     )
 
-    initialize_app_state(app)
     app.include_router(router)
 
 
 configure_app(app)
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description="Run the DARC-EL service API")
+    parser.add_argument(
+        "--llm-config-path",
+        required=True,
+        help="Path to the llm_models.yaml file",
+    )
+    return parser
 
 
 def require_env(name: str) -> str:
@@ -45,6 +54,13 @@ def require_env(name: str) -> str:
 
 
 def main() -> None:
+    parser = build_parser()
+    args = parser.parse_args()
+
+    from api import initialize_app_state  # type: ignore[import-not-found]
+
+    initialize_app_state(app, llm_config_path=args.llm_config_path)
+
     import uvicorn
 
     uvicorn.run(app, host="0.0.0.0", port=8000)
