@@ -24,7 +24,7 @@ This project is licensed under the MIT License. See [LICENSE](LICENSE).
 
 - Docker installed and running
 - Docker Compose v2 (`docker compose`) or the legacy `docker-compose` command
-- A valid Zotero API key and library ID
+- A configured `.env` file for backend, UI, Neo4j, and optional LLM provider keys
 - Neo4j runs as part of the compose stack at `bolt://neo4j-kg:7687`
 
 ## Project Structure
@@ -40,9 +40,16 @@ This project is licensed under the MIT License. See [LICENSE](LICENSE).
 - Backend service documentation: [`darc-el-backend/README.md`](darc-el-backend/README.md)
 - UI service documentation: [`darc-el-ui/README.md`](darc-el-ui/README.md)
 
+## Current Functional Focus
+
+- UI pages for home, monitor, document management, and model interaction
+- Document upload parsing, chunking, Neo4j ingestion, and document deletion workflows
+- Prompting through the default-model endpoint with provider routing via the shared model registry
+- Runtime observability through health and status endpoints exposed to the UI
+
 ## System Architecture
 
-DARC-EL runs as a compose-managed multi-service stack. The backend orchestrates bibliography downloads, document ingestion, and LLM provider routing through a shared registry configured in `config/llm_models.yaml`, while the Django UI consumes backend APIs.
+DARC-EL runs as a compose-managed multi-service stack. The backend orchestrates document upload and ingestion, document management operations, and LLM provider routing through a shared registry configured in `config/llm_models.yaml`, while the Django UI consumes backend APIs for monitoring and interaction workflows.
 
 The diagram below shows the deployment topology and service boundaries.
 
@@ -58,7 +65,6 @@ flowchart TD
         LLAMA[llama-cpp-backend\nContainer: llama-cpp-llm\nGPU profile optional]
     end
 
-    ZOT[Zotero API]
     OR[OpenRouter Cloud]
 
     User --> UI
@@ -68,7 +74,6 @@ flowchart TD
     API -->|Ollama model calls| OLL
     API -->|llama.cpp model calls| LLAMA
     API -->|openrouter provider calls| OR
-    API -->|/download| ZOT
 ```
 
 The runtime flow below summarizes how backend services process requests, route LLM calls, and persist graph data.
@@ -79,7 +84,6 @@ flowchart TD
 	ClientReq[Direct Client Request] --> API
 
 	API --> DOC[DocumentService]
-	API --> DL[ZoteroDownloadService]
 	API --> LLM[OpenAIClientService\nShared model registry]
 	API --> STATUS[Health/Status Handlers]
 
@@ -87,8 +91,6 @@ flowchart TD
 	DOC -->|GET /documents| NEO[(Neo4j Graph)]
     DOC -->|DELETE /documents/:file_name\ndelete all matching file_name| NEO
 	DOC -->|ingest records| NEO
-
-	DL -->|POST /download| ZOT[Zotero API]
 
 	API -->|POST /llm/default-model| LLM
 	LLM --> OLLP[Ollama Provider]
@@ -103,18 +105,21 @@ UI runtime and integration behavior are maintained in `darc-el-ui/README.md`.
 
 ## 1. Configure Environment Variables
 
-Copy `.env.example` to `.env` and set your own values:
+Copy `.env.example` to `.env` and set the runtime values for the UI and backend services:
 
-ZOTERO_LIBRARY_ID=your_library_id
-ZOTERO_API_KEY=your_api_key
-ZOTERO_LIBRARY_TYPE=group
+NEO4J_USER=neo4j
+NEO4J_PASS=your_neo4j_password
+NEO4J_URI=bolt://neo4j-kg:7687
+PDF_ZLIB_MAX_OUTPUT_LENGTH=200000000
 
-Optional:
+Optional provider keys:
 
-ZOTERO_OUTPUT_FILE=zotero_group_items.json
+OPEN_ROUTER_API_KEY=
+ANTHROPIC_API_KEY=
+OPENAI_API_KEY=
 
-LLM model registration is now read from `config/llm_models.yaml`. Keep model names and provider-model mappings in that YAML file.
-You can also register an optional OpenRouter model in the same YAML using `provider: openrouter` and `api_key: ${OPENROUTER_API_KEY}`.
+The UI container uses `BACKEND_BASE_URL=http://darc-el-backend:8000` by default in `docker-compose.yml`.
+LLM model registration is read from `config/llm_models.yaml`; keep provider-model mappings in that YAML file.
 
 ## 2. Build with Docker Compose
 
@@ -148,11 +153,13 @@ docker compose --profile gpu up -d
 
 ## 4. Verify Output
 
-After the service runs a download, check the generated JSON file in your project directory.
+After starting the stack, verify UI and service functionality:
 
-Default output file:
-
-zotero_group_items.json
+1. Open the UI at `http://localhost:8081` and confirm pages load for home, monitor, document, and model views.
+2. Confirm backend health at `http://localhost:8000/health`.
+3. Upload one or more files from the document page and verify the response reports `completed` or `partial` with per-file outcomes.
+4. Confirm ingested records via `GET /documents` and test deletion from the UI.
+5. Optionally validate upload progress via `GET /upload/status` and model status via `GET /llm/status`.
 
 ## Access the Services
 
