@@ -47,9 +47,10 @@ docker compose up -d --build --force-recreate darc-el-ui
 ## Pages and Navigation
 
 - Monitor page: `/monitor`
-- Upload page: `/upload`
+- Document page: `/document`
 - Model page: `/model`
 
-The UI now includes a top menu with `Monitor`, `Upload`, and `Model` items.
-The upload page is separate and forwards selected files to the backend `POST /upload` endpoint using multipart form data with the `files` field.
+The UI now includes a top menu with `Monitor`, `Document`, and `Model` items.
+The document page is separate and forwards selected files to the backend `POST /upload` endpoint using multipart form data with the `files` field.
+The document page also reads document records from `GET /documents` and supports delete actions through `DELETE /documents/{file_name}`.
 The model page is separate and sends prompts to backend `POST /llm/default-model` for default model interaction.

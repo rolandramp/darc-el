@@ -1,0 +1,108 @@
+{% extends "webapp/base.html" %}
+
+{% block title %}DARC-EL UI Document{% endblock %}
+
+{% block content %}
+<h1>Document Management</h1>
+<p>Upload documents, review ingested records, and delete document entries by file name.</p>
+<p>Backend targets: {{ backend_base_url }}/upload, {{ backend_base_url }}/documents</p>
+
+<section class="card">
+    <div class="title-row">
+        <span>Upload Files</span>
+        <span class="pill">POST /upload</span>
+    </div>
+
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="upload">
+        <p>
+            <label for="files">Choose files (PDF, DOCX, TXT):</label>
+            <input id="files" class="input" type="file" name="files" multiple required>
+        </p>
+        <button class="btn" type="submit">Upload</button>
+    </form>
+</section>
+
+{% if upload_error %}
+<section class="card" style="margin-top: 1rem;">
+    <div class="title-row">
+        <span>Upload Error</span>
+        <span class="pill">Failed</span>
+    </div>
+    <p class="error">{{ upload_error }}</p>
+</section>
+{% endif %}
+
+{% if document_error %}
+<section class="card" style="margin-top: 1rem;">
+    <div class="title-row">
+        <span>Document Error</span>
+        <span class="pill">Failed</span>
+    </div>
+    <p class="error">{{ document_error }}</p>
+</section>
+{% endif %}
+
+{% if upload_success %}
+<section class="card" style="margin-top: 1rem;">
+    <div class="title-row">
+        <span>Last Action Result</span>
+        <span class="pill">Success</span>
+    </div>
+    {% if selected_file_count %}
+    <p class="success">Selected files: {{ selected_file_count }}</p>
+    {% endif %}
+    <pre>{{ upload_success }}</pre>
+</section>
+{% endif %}
+
+<section class="card" style="margin-top: 1rem;">
+    <div class="title-row">
+        <span>Ingested Documents</span>
+        <span class="pill">GET /documents</span>
+    </div>
+
+    {% if documents %}
+    <div class="table-wrap">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>File Name</th>
+                    <th>Content Type</th>
+                    <th>Source</th>
+                    <th>Parser</th>
+                    <th>Chunks</th>
+                    <th>Updated</th>
+                    <th>Metadata</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for doc in documents %}
+                <tr>
+                    <td>{{ doc.file_name }}</td>
+                    <td>{{ doc.content_type }}</td>
+                    <td>{{ doc.source_type }}</td>
+                    <td>{{ doc.parser_name|default:"-" }}</td>
+                    <td>{{ doc.chunk_count }}</td>
+                    <td>{{ doc.updated_at|default:"-" }}</td>
+                    <td>{{ doc.metadata_summary|default:"-" }}</td>
+                    <td>
+                        <form method="post" class="inline-form">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="delete">
+                            <input type="hidden" name="file_name" value="{{ doc.file_name }}">
+                            <button class="btn btn-danger" type="submit">Delete</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p>No documents found.</p>
+    {% endif %}
+</section>
+{% endblock %}

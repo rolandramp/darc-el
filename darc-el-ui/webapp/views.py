@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from urllib.parse import quote
 from typing import Any
 
 import httpx
@@ -36,6 +37,38 @@ def _parse_response_payload(response: httpx.Response) -> dict[str, Any] | None:
     return payload if isinstance(payload, dict) else None
 
 
+def _documents_context(context: dict[str, Any]) -> dict[str, Any]:
+    endpoint_url = f"{settings.BACKEND_BASE_URL}/documents"
+    try:
+        with httpx.Client(timeout=20.0) as client:
+            response = client.get(endpoint_url)
+    except Exception as exc:
+        context["document_error"] = f"Document list request failed: {exc}"
+        context["documents"] = []
+        return context
+
+    payload = _parse_response_payload(response)
+    if response.is_success and payload:
+        documents = payload.get("documents")
+        if isinstance(documents, list):
+            context["documents"] = documents
+        else:
+            context["documents"] = []
+            context["document_error"] = "Backend returned an unexpected documents payload format."
+        return context
+
+    if payload and "detail" in payload:
+        detail = payload["detail"]
+    elif payload:
+        detail = json.dumps(payload)
+    else:
+        detail = response.text or "Unknown documents list error"
+
+    context["document_error"] = f"Backend returned {response.status_code}: {detail}"
+    context["documents"] = []
+    return context
+
+
 def home(request):
     context = _base_context(active_page="home")
     return render(request, "webapp/index.html", context)
@@ -58,49 +91,73 @@ def monitor(request):
     return render(request, "webapp/moitor.html", context)
 
 
-def upload_documents(request):
-    context = _base_context(active_page="upload")
+def document_page(request):
+    context = _base_context(active_page="document")
 
-    if request.method != "POST":
-        return render(request, "webapp/upload.html", context)
+    if request.method == "POST":
+        action = str(request.POST.get("action", "upload")).strip().lower()
+        if action == "delete":
+            file_name = str(request.POST.get("file_name", "")).strip()
+            if not file_name:
+                context["document_error"] = "Missing file name for delete action."
+            else:
+                delete_url = f"{settings.BACKEND_BASE_URL}/documents/{quote(file_name, safe='')}"
+                try:
+                    with httpx.Client(timeout=20.0) as client:
+                        response = client.delete(delete_url)
+                except Exception as exc:
+                    context["document_error"] = f"Delete request failed: {exc}"
+                else:
+                    payload = _parse_response_payload(response)
+                    if response.is_success:
+                        context["upload_success"] = payload or {
+                            "status": "completed",
+                            "detail": "Document deletion completed.",
+                        }
+                    else:
+                        if payload and "detail" in payload:
+                            detail = payload["detail"]
+                        elif payload:
+                            detail = json.dumps(payload)
+                        else:
+                            detail = response.text or "Unknown delete error"
+                        context["document_error"] = f"Backend returned {response.status_code}: {detail}"
+        else:
+            files = request.FILES.getlist("files")
+            if not files:
+                context["upload_error"] = "Please select at least one file before uploading."
+            else:
+                multipart_files: list[tuple[str, tuple[str, bytes, str]]] = []
+                for file_obj in files:
+                    content_type = file_obj.content_type or "application/octet-stream"
+                    multipart_files.append(("files", (file_obj.name, file_obj.read(), content_type)))
 
-    files = request.FILES.getlist("files")
-    if not files:
-        context["upload_error"] = "Please select at least one file before uploading."
-        return render(request, "webapp/upload.html", context)
+                upload_url = f"{settings.BACKEND_BASE_URL}/upload"
+                try:
+                    with httpx.Client(timeout=60.0) as client:
+                        response = client.post(upload_url, files=multipart_files)
+                except Exception as exc:
+                    context["upload_error"] = f"Upload request failed: {exc}"
+                else:
+                    payload = _parse_response_payload(response)
+                    context["selected_file_count"] = len(files)
 
-    multipart_files: list[tuple[str, tuple[str, bytes, str]]] = []
-    for file_obj in files:
-        content_type = file_obj.content_type or "application/octet-stream"
-        multipart_files.append(("files", (file_obj.name, file_obj.read(), content_type)))
+                    if response.is_success:
+                        context["upload_success"] = payload or {
+                            "status": "completed",
+                            "detail": "Upload completed but response payload was not JSON.",
+                        }
+                    else:
+                        if payload and "detail" in payload:
+                            error_detail = payload["detail"]
+                        elif payload:
+                            error_detail = json.dumps(payload)
+                        else:
+                            error_detail = response.text or "Unknown upload error"
+                        context["upload_error"] = f"Backend returned {response.status_code}: {error_detail}"
 
-    upload_url = f"{settings.BACKEND_BASE_URL}/upload"
-    try:
-        with httpx.Client(timeout=60.0) as client:
-            response = client.post(upload_url, files=multipart_files)
-    except Exception as exc:
-        context["upload_error"] = f"Upload request failed: {exc}"
-        return render(request, "webapp/upload.html", context)
-
-    payload = _parse_response_payload(response)
-    context["selected_file_count"] = len(files)
-
-    if response.is_success:
-        context["upload_success"] = payload or {
-            "status": "completed",
-            "detail": "Upload completed but response payload was not JSON.",
-        }
-        return render(request, "webapp/upload.html", context)
-
-    if payload and "detail" in payload:
-        error_detail = payload["detail"]
-    elif payload:
-        error_detail = json.dumps(payload)
-    else:
-        error_detail = response.text or "Unknown upload error"
-
-    context["upload_error"] = f"Backend returned {response.status_code}: {error_detail}"
-    return render(request, "webapp/upload.html", context)
+    context = _documents_context(context)
+    return render(request, "webapp/document.html", context)
 
 
 def model_interaction(request):

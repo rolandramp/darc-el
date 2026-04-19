@@ -120,24 +120,22 @@ class MainOrchestrationTests(unittest.TestCase):
             parser_name="utf-8-text",
         )
 
-        ingestion_service = MagicMock()
-        ingestion_service.ingest_upload.side_effect = [record_one, record_two]
-        neo4j_service = MagicMock()
-        neo4j_service.ingest_documents.return_value = [
+        document_service = MagicMock()
+        document_service.ingest_upload.side_effect = [record_one, record_two]
+        document_service.ingest_records.return_value = [
             {"file_name": "paper-a.pdf", "status": "completed"},
             {"file_name": "notes.txt", "status": "completed"},
         ]
 
-        with patch.object(api_routes, "DocumentIngestionService", return_value=ingestion_service):
-            with patch.object(api_routes, "Neo4jDocumentService", return_value=neo4j_service):
-                with TestClient(main.app) as client:
-                    response = client.post(
-                        "/upload",
-                        files=[
-                            ("files", ("paper-a.pdf", b"pdf-bytes", "application/pdf")),
-                            ("files", ("notes.txt", b"Beta", "text/plain")),
-                        ],
-                    )
+        with patch.object(api_routes, "DocumentService", return_value=document_service):
+            with TestClient(main.app) as client:
+                response = client.post(
+                    "/upload",
+                    files=[
+                        ("files", ("paper-a.pdf", b"pdf-bytes", "application/pdf")),
+                        ("files", ("notes.txt", b"Beta", "text/plain")),
+                    ],
+                )
 
         load_dotenv_mock.assert_called_once()
         self.assertEqual(response.status_code, 200)
@@ -145,9 +143,9 @@ class MainOrchestrationTests(unittest.TestCase):
         self.assertEqual(payload["status"], "completed")
         self.assertEqual(payload["file_count"], 2)
         self.assertEqual(len(payload["files"]), 2)
-        ingestion_service.ingest_upload.assert_any_call("paper-a.pdf", "application/pdf", b"pdf-bytes")
-        ingestion_service.ingest_upload.assert_any_call("notes.txt", "text/plain", b"Beta")
-        neo4j_service.ingest_documents.assert_called_once_with([record_one, record_two])
+        document_service.ingest_upload.assert_any_call("paper-a.pdf", "application/pdf", b"pdf-bytes")
+        document_service.ingest_upload.assert_any_call("notes.txt", "text/plain", b"Beta")
+        document_service.ingest_records.assert_called_once_with([record_one, record_two])
 
         with TestClient(main.app) as client:
             status_response = client.get("/upload/status")
@@ -157,12 +155,12 @@ class MainOrchestrationTests(unittest.TestCase):
 
     @patch("main.load_dotenv")
     def test_upload_endpoint_rejects_unsupported_file_types(self, load_dotenv_mock):
-        ingestion_service = MagicMock()
-        ingestion_service.ingest_upload.side_effect = api_routes.UnsupportedDocumentTypeError(
+        document_service = MagicMock()
+        document_service.ingest_upload.side_effect = api_routes.UnsupportedDocumentTypeError(
             "Unsupported document type: application/zip"
         )
 
-        with patch.object(api_routes, "DocumentIngestionService", return_value=ingestion_service):
+        with patch.object(api_routes, "DocumentService", return_value=document_service):
             with TestClient(main.app) as client:
                 response = client.post(
                     "/upload",
@@ -172,6 +170,70 @@ class MainOrchestrationTests(unittest.TestCase):
         load_dotenv_mock.assert_called_once()
         self.assertEqual(response.status_code, 415)
         self.assertEqual(response.json()["detail"], "Unsupported document type: application/zip")
+
+    @patch("main.load_dotenv")
+    def test_documents_endpoint_lists_documents(self, load_dotenv_mock):
+        document_service = MagicMock()
+        document_service.list_documents.return_value = [
+            {
+                "file_name": "paper-a.pdf",
+                "content_type": "application/pdf",
+                "source_type": "pdf",
+                "parser_name": "pypdf",
+                "chunk_count": 4,
+                "updated_at": "2026-04-19T12:00:00+00:00",
+                "metadata_summary": "page_count=10",
+            }
+        ]
+
+        with patch.object(api_routes, "DocumentService", return_value=document_service):
+            with TestClient(main.app) as client:
+                response = client.get("/documents")
+
+        load_dotenv_mock.assert_called_once()
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["count"], 1)
+        self.assertEqual(payload["documents"][0]["file_name"], "paper-a.pdf")
+        document_service.list_documents.assert_called_once_with()
+
+    @patch("main.load_dotenv")
+    def test_delete_document_endpoint_returns_deleted_payload(self, load_dotenv_mock):
+        document_service = MagicMock()
+        document_service.delete_document.return_value = {
+            "deleted": True,
+            "file_name": "paper-a.pdf",
+            "deleted_count": 2,
+        }
+
+        with patch.object(api_routes, "DocumentService", return_value=document_service):
+            with TestClient(main.app) as client:
+                response = client.delete("/documents/paper-a.pdf")
+
+        load_dotenv_mock.assert_called_once()
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertTrue(payload["deleted"])
+        self.assertEqual(payload["deleted_count"], 2)
+        document_service.delete_document.assert_called_once_with("paper-a.pdf")
+
+    @patch("main.load_dotenv")
+    def test_delete_document_endpoint_returns_404_when_missing(self, load_dotenv_mock):
+        document_service = MagicMock()
+        document_service.delete_document.return_value = {
+            "deleted": False,
+            "file_name": "missing.pdf",
+            "deleted_count": 0,
+        }
+
+        with patch.object(api_routes, "DocumentService", return_value=document_service):
+            with TestClient(main.app) as client:
+                response = client.delete("/documents/missing.pdf")
+
+        load_dotenv_mock.assert_called_once()
+        self.assertEqual(response.status_code, 404)
+        self.assertIn("No documents found for file name", response.json()["detail"])
+        document_service.delete_document.assert_called_once_with("missing.pdf")
 
     @patch("main.load_dotenv")
     def test_llm_status_endpoint_exposes_client_configuration(self, load_dotenv_mock):

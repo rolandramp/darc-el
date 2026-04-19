@@ -36,6 +36,8 @@ docker compose up -d --build --force-recreate darc-el-backend
 - `POST /llm/default-model` sends a prompt to the configured default model.
 - `POST /download` triggers literature download processing.
 - `POST /upload` ingests uploaded documents.
+- `GET /documents` lists ingested documents.
+- `DELETE /documents/{file_name}` deletes all ingested records for a file name.
 
 ## Shared LLM Clients
 
@@ -71,6 +73,13 @@ The API extracts text and metadata, chunks the text, and writes the result to Ne
 - one `DocumentChunk` node per chunk
 
 The current Neo4j connection used by the app inside Docker is `bolt://neo4j-kg:7687`, with credentials controlled by `NEO4J_USER` and `NEO4J_PASS`.
+
+## Document Management
+
+The backend document workflow is implemented through `DocumentService` and persists records using Neo4j.
+
+- Use `GET /documents` to retrieve ingested document rows including parser, chunk count, update time, and metadata summary.
+- Use `DELETE /documents/{file_name}` to remove all matching document records by file name.
 
 ## Static Analysis
 

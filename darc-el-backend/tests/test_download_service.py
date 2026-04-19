@@ -7,8 +7,8 @@ from unittest.mock import patch
 import yaml
 from core.document_ingestion import DocumentChunk, DocumentIngestionRecord
 from pydantic import ValidationError
-from service.document_ingestion_service import (
-    DocumentIngestionService,
+from service.document_service import (
+    DocumentService,
     UnsupportedDocumentTypeError,
 )
 from service.download_service import ZoteroDownloadService
@@ -66,7 +66,7 @@ class DownloadServiceTests(unittest.TestCase):
             self.assertEqual(written, items)
 
     def test_document_ingestion_service_detects_pdf_and_chunks_text(self):
-        service = DocumentIngestionService()
+        service = DocumentService()
 
         with patch.object(service, "_parse_pdf", return_value=({"page_count": 1}, "Hello world", "pypdf")) as parse_pdf_mock:
             record = service.ingest_upload("paper.pdf", "application/pdf", b"pdf-bytes")
@@ -77,13 +77,13 @@ class DownloadServiceTests(unittest.TestCase):
         self.assertEqual(record.chunks[0].text, "Hello world")
 
     def test_document_ingestion_service_rejects_unsupported_type(self):
-        service = DocumentIngestionService()
+        service = DocumentService()
 
         with self.assertRaises(UnsupportedDocumentTypeError):
             service.ingest_upload("archive.zip", "application/zip", b"zip")
 
     def test_document_ingestion_service_chunks_long_text(self):
-        service = DocumentIngestionService()
+        service = DocumentService()
         chunks = service._chunk_text("a" * 2500, chunk_size=1000, overlap=100)
 
         self.assertGreaterEqual(len(chunks), 3)

@@ -169,6 +169,19 @@ pre {
     background: #0f4f45;
 }
 
+.btn-danger {
+    background: #9e2a25;
+    border-color: #7f201c;
+}
+
+.btn-danger:hover {
+    background: #7f201c;
+}
+
+.inline-form {
+    margin: 0;
+}
+
 .input {
     width: 100%;
     box-sizing: border-box;

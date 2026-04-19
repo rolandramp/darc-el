@@ -7,12 +7,11 @@ from core.document_ingestion import DocumentIngestionRecord
 from core.download_request import DownloadRequest
 from fastapi import APIRouter, Body, File, HTTPException, Request, UploadFile
 from pydantic import BaseModel, Field
-from service.document_ingestion_service import (  # type: ignore[import-not-found]
-    DocumentIngestionService,
+from service.document_service import (  # type: ignore[import-not-found]
+    DocumentService,
     UnsupportedDocumentTypeError,
 )
 from service.download_service import ZoteroDownloadService
-from service.neo4j_document_service import Neo4jDocumentService
 
 router = APIRouter()
 
@@ -239,6 +238,38 @@ def prompt_default_model(
     }
 
 
+@router.get(
+    "/documents",
+    summary="List ingested documents",
+    description="Returns currently ingested document records from Neo4j.",
+    response_description="Document list and total count.",
+)
+def list_documents() -> dict[str, Any]:
+    document_service = DocumentService()
+    documents = document_service.list_documents()
+    return {
+        "documents": documents,
+        "count": len(documents),
+    }
+
+
+@router.delete(
+    "/documents/{file_name}",
+    summary="Delete ingested documents by file name",
+    description="Deletes all ingested document records with the provided file name.",
+    response_description="Deletion status payload.",
+    responses={
+        404: {"description": "No matching document records were found."},
+    },
+)
+def delete_document(file_name: str) -> dict[str, Any]:
+    document_service = DocumentService()
+    result = document_service.delete_document(file_name)
+    if not result.get("deleted"):
+        raise HTTPException(status_code=404, detail=f"No documents found for file name: {file_name}")
+    return result
+
+
 @router.post(
     "/upload",
     summary="Upload and ingest documents",
@@ -260,7 +291,7 @@ async def upload_documents(
     if not files:
         raise HTTPException(status_code=400, detail="At least one file is required")
 
-    ingestion_service = DocumentIngestionService()
+    document_service = DocumentService()
 
     _set_upload_status(
         request,
@@ -275,7 +306,7 @@ async def upload_documents(
     for upload_file in files:
         try:
             data = await upload_file.read()
-            record = ingestion_service.ingest_upload(
+            record = document_service.ingest_upload(
                 upload_file.filename or "uploaded-file",
                 upload_file.content_type,
                 data,
@@ -297,8 +328,7 @@ async def upload_documents(
             raise HTTPException(status_code=502, detail=f"Upload parsing failed: {exc}") from exc
 
     try:
-        neo4j_service = Neo4jDocumentService()
-        neo4j_results = neo4j_service.ingest_documents(records)
+        neo4j_results = document_service.ingest_records(records)
     except Exception as exc:
         _set_upload_status(request, state="failed", updated_at=_now_iso(), message=str(exc))
         raise HTTPException(status_code=502, detail=f"Neo4j ingestion failed: {exc}") from exc
