@@ -21,8 +21,8 @@ if str(PACKAGE_ROOT) not in sys.path:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    project_root = Path(__file__).resolve().parents[1]
-    load_dotenv(dotenv_path=project_root / ".env", override=False)
+    repo_root = Path(__file__).resolve().parents[2]
+    load_dotenv(dotenv_path=repo_root / ".env", override=False)
     yield
 
 
@@ -41,10 +41,13 @@ configure_app(app)
 
 
 def build_parser() -> argparse.ArgumentParser:
+    default_llm_config_path = (
+        Path(__file__).resolve().parents[2] / "config" / "llm_models.yaml"
+    )
     parser = argparse.ArgumentParser(description="Run the DARC-EL service API")
     parser.add_argument(
         "--llm-config-path",
-        required=True,
+        default=str(default_llm_config_path),
         help="Path to the llm_models.yaml file",
     )
     return parser

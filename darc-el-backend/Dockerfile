@@ -4,9 +4,11 @@ WORKDIR /app
 
 RUN pip install --no-cache-dir uv
 
-COPY pyproject.toml README.md LICENSE ./
+COPY darc-el-backend/pyproject.toml ./pyproject.toml
+COPY darc-el-backend/README.md ./README.md
+COPY LICENSE ./LICENSE
 COPY config ./config
-COPY src ./src
+COPY darc-el-backend/src ./src
 
 RUN uv pip install --system --no-cache .
 

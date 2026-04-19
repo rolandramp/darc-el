@@ -17,7 +17,7 @@ DocumentChunk = document_ingestion.DocumentChunk
 DocumentIngestionRecord = document_ingestion.DocumentIngestionRecord
 main = importlib.import_module("main")
 
-LLM_CONFIG_PATH = Path(__file__).resolve().parents[1] / "config" / "llm_models.yaml"
+LLM_CONFIG_PATH = Path(__file__).resolve().parents[2] / "config" / "llm_models.yaml"
 
 
 class MainOrchestrationTests(unittest.TestCase):

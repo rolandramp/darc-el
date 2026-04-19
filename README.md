@@ -26,11 +26,9 @@ This project is licensed under the MIT License. See [LICENSE](LICENSE).
 
 ## Project Structure
 
-- `Dockerfile` builds the Python app image
-- `docker-compose.yml` builds and runs the app together with Neo4j and Ollama
-- `pyproject.toml` defines project dependencies
-- `src/main.py` contains the application entry point
-- `src/darc-el/service/` contains the Zotero download service, document ingestion service, and Neo4j persistence service
+- `darc-el-backend/` contains the FastAPI backend, its `pyproject.toml`, and backend Dockerfile
+- `darc-el-ui/` contains the Django web UI, its `pyproject.toml`, and UI Dockerfile
+- `docker-compose.yml` builds and runs backend + UI together with Neo4j and LLM providers
 - `.env` stores runtime environment variables
 - `.env.example` provides a safe template without secrets
 
@@ -53,6 +51,7 @@ flowchart TD
 	API --> Ollama
 	API --> Llama
 	API --> OpenRouter
+	UI[Django UI] --> API
 ```
 
 The runtime flow below shows how API endpoints map to internal services, shared LLM routing, and graph persistence.
@@ -108,10 +107,16 @@ From the project root, build the services:
 docker compose build
 ```
 
-To build only the application service:
+To build only the backend service:
 
 ```bash
 docker compose build darc-el
+```
+
+To build only the UI service:
+
+```bash
+docker compose build darc-el-ui
 ```
 
 ## 3. Run the Stack
@@ -126,6 +131,12 @@ Or run only the application service:
 
 ```bash
 docker compose up darc-el
+```
+
+Or run only the UI service:
+
+```bash
+docker compose up darc-el-ui
 ```
 
 If you want to rebuild before starting:
@@ -157,6 +168,7 @@ zotero_group_items.json
 ## Access the Services
 
 - DARC-EL API: http://localhost:8000
+- DARC-EL UI (Django): http://localhost:8081
 - Neo4j Browser: http://localhost:7474
 - Neo4j Bolt: bolt://localhost:7687
 - Ollama API: http://localhost:6543
@@ -166,7 +178,8 @@ zotero_group_items.json
 The application initializes a shared OpenAI-compatible client registry at startup. Clients are registered by model name from `config/llm_models.yaml`, where each model entry defines provider and base URL.
 For `openrouter` providers, the service uses the dedicated OpenRouter SDK client path during registration.
 
-Start the app with `python src/main.py --llm-config-path config/llm_models.yaml`.
+Start the backend app with `python darc-el-backend/src/main.py --llm-config-path config/llm_models.yaml`.
+Start the UI app with `python darc-el-ui/manage.py runserver 0.0.0.0:8081`.
 
 Use `GET /llm/status` to inspect non-secret client configuration and initialization state.
 

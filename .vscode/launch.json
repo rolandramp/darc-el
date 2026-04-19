@@ -5,7 +5,7 @@
       "name": "DARC-EL: Run",
       "type": "python",
       "request": "launch",
-      "program": "${workspaceFolder}/src/main.py",
+      "program": "${workspaceFolder}/darc-el-backend/src/main.py",
       "console": "integratedTerminal",
       "justMyCode": true,
       "env": {
@@ -13,13 +13,33 @@
         "ZOTERO_API_KEY": "${env:ZOTERO_API_KEY}",
         "ZOTERO_LIBRARY_TYPE": "${env:ZOTERO_LIBRARY_TYPE}",
         "ZOTERO_OUTPUT_FILE": "${env:ZOTERO_OUTPUT_FILE}"
+      },
+      "args": [
+        "--llm-config-path",
+        "${workspaceFolder}/config/llm_models.yaml"
+      ]
+    },
+    {
+      "name": "DARC-EL UI: Run",
+      "type": "python",
+      "request": "launch",
+      "program": "${workspaceFolder}/darc-el-ui/manage.py",
+      "args": [
+        "runserver",
+        "0.0.0.0:8081"
+      ],
+      "cwd": "${workspaceFolder}/darc-el-ui",
+      "console": "integratedTerminal",
+      "justMyCode": true,
+      "env": {
+        "BACKEND_BASE_URL": "http://localhost:8000"
       }
     },
     {
       "name": "DARC-EL: Debug",
       "type": "python",
       "request": "launch",
-      "program": "${workspaceFolder}/src/main.py",
+      "program": "${workspaceFolder}/darc-el-backend/src/main.py",
       "console": "integratedTerminal",
       "justMyCode": false,
       "stopOnEntry": false,
@@ -28,6 +48,10 @@
         "ZOTERO_API_KEY": "${env:ZOTERO_API_KEY}",
         "ZOTERO_LIBRARY_TYPE": "${env:ZOTERO_LIBRARY_TYPE}",
         "ZOTERO_OUTPUT_FILE": "${env:ZOTERO_OUTPUT_FILE}"
+      },
+      "args": [
+        "--llm-config-path",
+        "${workspaceFolder}/config/llm_models.yaml"
       }
     }
   ]

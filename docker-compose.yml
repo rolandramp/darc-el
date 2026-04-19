@@ -1,9 +1,9 @@
 services:
-  darc-el:
+  darc-el-backend:
     build:
       context: .
-      dockerfile: Dockerfile
-    container_name: darc-el
+      dockerfile: darc-el-backend/Dockerfile
+    container_name: darc-el-backend
     ports:
       - "8000:8000"
     env_file:
@@ -14,6 +14,32 @@ services:
       timeout: 10s
       retries: 5
       start_period: 10s
+
+  darc-el-ui:
+    build:
+      context: .
+      dockerfile: darc-el-ui/Dockerfile
+    container_name: darc-el-ui
+    environment:
+      - BACKEND_BASE_URL=http://darc-el:8000
+      - DJANGO_DEBUG=true
+    depends_on:
+      darc-el-backend:
+        condition: service_started
+    ports:
+      - "8081:8081"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://localhost:8081/', timeout=5)",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
 
   neo4j-kg:
     build:

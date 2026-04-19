@@ -3,9 +3,9 @@ requires = ["hatch>=1.16", "hatchling>=1.25"]
 build-backend = "hatchling.build"
 
 [project]
-name = "darc-el"
+name = "darc-el-backend"
 version = "0.1.0"
-description = "DARC-EL: LLM-Based Data Extraction for Assessing Reporting Completeness in Electrocatalysis Literature"
+description = "DARC-EL backend"
 readme = "README.md"
 license = { file = "LICENSE" }
 authors = [
@@ -55,4 +55,4 @@ include = ["src/main.py"]
 "src" = ""
 
 [tool.hatch.build.targets.sdist]
-include = ["src/main.py", "README.md", "LICENSE", "pyproject.toml"]
+include = ["src/main.py", "README.md", "pyproject.toml"]
