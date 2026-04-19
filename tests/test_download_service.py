@@ -4,10 +4,9 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+import yaml
 from core.document_ingestion import DocumentChunk, DocumentIngestionRecord
 from pydantic import ValidationError
-import yaml
-import main
 from service.document_ingestion_service import (
     DocumentIngestionService,
     UnsupportedDocumentTypeError,
@@ -15,6 +14,8 @@ from service.document_ingestion_service import (
 from service.download_service import ZoteroDownloadService
 from service.llm_client_service import LLMRegistryFileConfig, OpenAIClientService
 from service.neo4j_document_service import Neo4jDocumentService
+
+import main
 
 
 class FakeZoteroClient:

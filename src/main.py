@@ -5,18 +5,19 @@ import os
 import sys
 from contextlib import asynccontextmanager
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import yaml
 from dotenv import load_dotenv
 from fastapi import FastAPI
 from pydantic import ValidationError
 
+if TYPE_CHECKING:
+    from service.llm_client_service import LLMRegistryFileConfig
+
 PACKAGE_ROOT = Path(__file__).resolve().parent / "darc-el"
 if str(PACKAGE_ROOT) not in sys.path:
     sys.path.insert(0, str(PACKAGE_ROOT))
-
-from service.llm_client_service import LLMRegistryFileConfig
-
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -50,6 +51,8 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def load_llm_registry_config(config_path: str) -> LLMRegistryFileConfig:
+    from service.llm_client_service import LLMRegistryFileConfig
+
     path = Path(config_path)
     if not path.exists():
         raise ValueError(f"LLM config file not found: {path}")
