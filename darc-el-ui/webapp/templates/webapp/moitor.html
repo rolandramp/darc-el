@@ -1,0 +1,122 @@
+{% extends "webapp/base.html" %}
+
+{% block title %}DARC-EL UI Monitor{% endblock %}
+
+{% block content %}
+<h1>DARC-EL UI</h1>
+<p>Backend target: {{ backend_base_url }}</p>
+
+<section class="grid">
+    <article class="card">
+        <div class="title-row">
+            <span>Backend Health</span>
+            <span class="pill">GET /health</span>
+        </div>
+        {% if health_error %}
+            <p class="error">{{ health_error }}</p>
+        {% else %}
+            <div class="kv-list">
+                <div class="kv-item">
+                    <span class="kv-key">Status</span>
+                    <span class="status-badge {% if health_payload.status == 'ok' %}status-ok{% else %}status-warn{% endif %}">
+                        {{ health_payload.status|default:"unknown" }}
+                    </span>
+                </div>
+            </div>
+        {% endif %}
+    </article>
+
+    <article class="card">
+        <div class="title-row">
+            <span>LLM Registry Status</span>
+            <span class="pill">GET /llm/status</span>
+        </div>
+        {% if llm_error %}
+            <p class="error">{{ llm_error }}</p>
+        {% else %}
+            <div class="kv-list">
+                <div class="kv-item">
+                    <span class="kv-key">Default Provider</span>
+                    <span class="kv-value">{{ llm_payload.default_provider|default:"-" }}</span>
+                </div>
+                <div class="kv-item">
+                    <span class="kv-key">Default Model</span>
+                    <span class="kv-value">{{ llm_payload.default_model|default:"-" }}</span>
+                </div>
+                <div class="kv-item">
+                    <span class="kv-key">Chat Model</span>
+                    <span class="kv-value">{{ llm_payload.chat_model|default:"-" }}</span>
+                </div>
+                <div class="kv-item">
+                    <span class="kv-key">Embedding Model</span>
+                    <span class="kv-value">{{ llm_payload.embedding_model|default:"-" }}</span>
+                </div>
+            </div>
+
+            <h3 class="section-title">Providers</h3>
+            <div class="table-wrap">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Provider</th>
+                            <th>Default Model</th>
+                            <th>Base URL</th>
+                            <th>Initialized</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for provider_name, provider_data in llm_payload.providers.items %}
+                            <tr>
+                                <td>{{ provider_name }}</td>
+                                <td>{{ provider_data.default_model|default:"-" }}</td>
+                                <td>{{ provider_data.base_url|default:"-" }}</td>
+                                <td>
+                                    <span class="status-badge {% if provider_data.initialized %}status-ok{% else %}status-warn{% endif %}">
+                                        {% if provider_data.initialized %}yes{% else %}no{% endif %}
+                                    </span>
+                                </td>
+                            </tr>
+                        {% empty %}
+                            <tr>
+                                <td colspan="4">No provider data available.</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <h3 class="section-title">Registered Models</h3>
+            <div class="table-wrap">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Model</th>
+                            <th>Provider</th>
+                            <th>Base URL</th>
+                            <th>Initialized</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for model_name, model_data in llm_payload.models.items %}
+                            <tr>
+                                <td>{{ model_name }}</td>
+                                <td>{{ model_data.provider|default:"-" }}</td>
+                                <td>{{ model_data.base_url|default:"-" }}</td>
+                                <td>
+                                    <span class="status-badge {% if model_data.initialized %}status-ok{% else %}status-warn{% endif %}">
+                                        {% if model_data.initialized %}yes{% else %}no{% endif %}
+                                    </span>
+                                </td>
+                            </tr>
+                        {% empty %}
+                            <tr>
+                                <td colspan="4">No model data available.</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% endif %}
+    </article>
+</section>
+{% endblock %}

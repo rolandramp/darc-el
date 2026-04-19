@@ -36,6 +36,11 @@ def _parse_response_payload(response: httpx.Response) -> dict[str, Any] | None:
     return payload if isinstance(payload, dict) else None
 
 
+def home(request):
+    context = _base_context(active_page="home")
+    return render(request, "webapp/index.html", context)
+
+
 def monitor(request):
     with httpx.Client(timeout=8.0) as client:
         health_payload, health_error = _fetch_json(client, "/health")
@@ -50,7 +55,7 @@ def monitor(request):
         "llm_error": llm_error,
         }
     )
-    return render(request, "webapp/index.html", context)
+    return render(request, "webapp/moitor.html", context)
 
 
 def upload_documents(request):

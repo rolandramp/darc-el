@@ -5,14 +5,22 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{% block title %}DARC-EL UI{% endblock %}</title>
+    <link rel="icon" type="image/png" href="{% static 'webapp/images/darc-el.png' %}">
+    <link rel="apple-touch-icon" href="{% static 'webapp/images/darc-el.png' %}">
     <link rel="stylesheet" href="{% static 'webapp/styles.css' %}">
 </head>
 <body>
     <main class="page">
         <nav class="menu" aria-label="Main menu">
-            <a href="{% url 'monitor' %}" class="{% if active_page == 'monitor' %}active{% endif %}">Monitor</a>
-            <a href="{% url 'upload_documents' %}" class="{% if active_page == 'upload' %}active{% endif %}">Upload</a>
-            <a href="{% url 'model_interaction' %}" class="{% if active_page == 'model' %}active{% endif %}">Model</a>
+            <a href="{% url 'home' %}" class="brand" aria-label="DARC-EL Home">
+                <img class="brand-logo" src="{% static 'webapp/images/darc-el.png' %}" alt="DARC-EL logo">
+                <span class="brand-text">DARC-EL UI</span>
+            </a>
+            <div class="menu-links">
+                <a href="{% url 'monitor' %}" class="{% if active_page == 'monitor' %}active{% endif %}">Monitor</a>
+                <a href="{% url 'upload_documents' %}" class="{% if active_page == 'upload' %}active{% endif %}">Upload</a>
+                <a href="{% url 'model_interaction' %}" class="{% if active_page == 'model' %}active{% endif %}">Model</a>
+            </div>
         </nav>
 
         {% block content %}{% endblock %}

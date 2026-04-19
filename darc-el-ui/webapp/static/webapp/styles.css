@@ -35,6 +35,44 @@ body {
     box-shadow: 0 4px 18px rgba(20, 99, 86, 0.08);
 }
 
+.brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+    text-decoration: none;
+    color: var(--text);
+    padding: 0.2rem 0.35rem;
+    border-radius: 10px;
+}
+
+.brand:hover {
+    background: #f8fbfa;
+}
+
+.brand-logo {
+    width: 40px;
+    height: 40px;
+    object-fit: contain;
+    border-radius: 8px;
+    background: #fff;
+    border: 1px solid var(--border);
+    padding: 0.15rem;
+}
+
+.brand-text {
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    color: #124d43;
+}
+
+.menu-links {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.7rem;
+    margin-left: auto;
+}
+
 .menu a {
     text-decoration: none;
     color: var(--text);
@@ -140,8 +178,97 @@ pre {
     background: #fff;
 }
 
+.section-title {
+    margin: 1rem 0 0.55rem;
+    font-size: 1rem;
+    color: var(--text);
+}
+
+.kv-list {
+    display: grid;
+    gap: 0.45rem;
+}
+
+.kv-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.7rem;
+    padding: 0.45rem 0.55rem;
+    background: #fbfdfc;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+}
+
+.kv-key {
+    font-weight: 600;
+}
+
+.kv-value {
+    color: var(--muted);
+    text-align: right;
+    word-break: break-word;
+}
+
+.status-badge {
+    display: inline-block;
+    border-radius: 999px;
+    padding: 0.15rem 0.5rem;
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+.status-ok {
+    background: #e6f5ef;
+    color: #0f7a58;
+    border: 1px solid #b8e2d3;
+}
+
+.status-warn {
+    background: #fff3e6;
+    color: #9b5d00;
+    border: 1px solid #ffd7a3;
+}
+
+.table-wrap {
+    overflow-x: auto;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+}
+
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 560px;
+    background: #fff;
+}
+
+.data-table th,
+.data-table td {
+    padding: 0.55rem 0.65rem;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.88rem;
+    vertical-align: top;
+}
+
+.data-table th {
+    background: #f6faf8;
+    color: #30524b;
+    font-weight: 700;
+}
+
+.data-table tr:last-child td {
+    border-bottom: none;
+}
+
 @media (max-width: 680px) {
     .page {
         padding-top: 0.9rem;
+    }
+
+    .menu-links {
+        width: 100%;
+        margin-left: 0;
     }
 }
