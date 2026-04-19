@@ -90,6 +90,38 @@ class DownloadServiceTests(unittest.TestCase):
         self.assertEqual(chunks[0].index, 0)
         self.assertTrue(all(isinstance(chunk, DocumentChunk) for chunk in chunks))
 
+    def test_document_ingestion_service_uses_default_pdf_zlib_limit(self):
+        service = DocumentService()
+
+        with patch.dict("os.environ", {}, clear=True):
+            limit = service._pdf_zlib_max_output_length()
+
+        self.assertEqual(limit, service.default_pdf_zlib_max_output_length)
+
+    def test_document_ingestion_service_uses_configured_pdf_zlib_limit(self):
+        service = DocumentService()
+
+        with patch.dict("os.environ", {"PDF_ZLIB_MAX_OUTPUT_LENGTH": "250000000"}, clear=True):
+            limit = service._pdf_zlib_max_output_length()
+
+        self.assertEqual(limit, 250000000)
+
+    def test_document_ingestion_service_clamps_negative_pdf_zlib_limit(self):
+        service = DocumentService()
+
+        with patch.dict("os.environ", {"PDF_ZLIB_MAX_OUTPUT_LENGTH": "-1"}, clear=True):
+            limit = service._pdf_zlib_max_output_length()
+
+        self.assertEqual(limit, 0)
+
+    def test_document_ingestion_service_falls_back_for_invalid_pdf_zlib_limit(self):
+        service = DocumentService()
+
+        with patch.dict("os.environ", {"PDF_ZLIB_MAX_OUTPUT_LENGTH": "invalid"}, clear=True):
+            limit = service._pdf_zlib_max_output_length()
+
+        self.assertEqual(limit, service.default_pdf_zlib_max_output_length)
+
     def test_neo4j_document_service_uses_driver_and_writes_each_record(self):
         record = DocumentIngestionRecord(
             file_name="paper.pdf",

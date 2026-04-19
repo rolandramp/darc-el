@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import io
 import mimetypes
+import os
 from pathlib import Path
 from typing import Any, ClassVar
 
@@ -15,6 +16,8 @@ class UnsupportedDocumentTypeError(ValueError):
 
 
 class DocumentService(BaseModel):
+    default_pdf_zlib_max_output_length: ClassVar[int] = 200_000_000
+    pdf_zlib_max_output_length_env_name: ClassVar[str] = "PDF_ZLIB_MAX_OUTPUT_LENGTH"
     supported_types: ClassVar[dict[str, str]] = {
         "application/pdf": "pdf",
         "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
@@ -75,6 +78,11 @@ class DocumentService(BaseModel):
 
     def _parse_pdf(self, data: bytes) -> tuple[dict[str, Any], str, str]:
         from pypdf import PdfReader
+        from pypdf import filters as pypdf_filters
+
+        configured_limit = self._pdf_zlib_max_output_length()
+        if pypdf_filters.ZLIB_MAX_OUTPUT_LENGTH != configured_limit:
+            pypdf_filters.ZLIB_MAX_OUTPUT_LENGTH = configured_limit
 
         reader = PdfReader(io.BytesIO(data))
         text_parts: list[str] = []
@@ -88,6 +96,18 @@ class DocumentService(BaseModel):
             "pdf_metadata": self._stringify_metadata(reader.metadata or {}),
         }
         return metadata, "\n".join(text_parts).strip(), "pypdf"
+
+    def _pdf_zlib_max_output_length(self) -> int:
+        configured = os.getenv(self.pdf_zlib_max_output_length_env_name, "").strip()
+        if not configured:
+            return self.default_pdf_zlib_max_output_length
+
+        try:
+            value = int(configured)
+        except ValueError:
+            return self.default_pdf_zlib_max_output_length
+
+        return max(0, value)
 
     def _parse_docx(self, data: bytes) -> tuple[dict[str, Any], str, str]:
         from docx import Document

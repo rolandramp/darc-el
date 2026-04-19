@@ -280,7 +280,6 @@ def delete_document(file_name: str) -> dict[str, Any]:
     response_description="Upload and ingestion results per file plus Neo4j ingestion summary.",
     responses={
         400: {"description": "No files were supplied."},
-        415: {"description": "Unsupported document content type."},
         502: {"description": "Document parsing or Neo4j ingestion failed."},
     },
 )
@@ -304,10 +303,11 @@ async def upload_documents(
     records: list[DocumentIngestionRecord] = []
     file_results: list[dict[str, Any]] = []
     for upload_file in files:
+        file_name = upload_file.filename or "uploaded-file"
         try:
             data = await upload_file.read()
             record = document_service.ingest_upload(
-                upload_file.filename or "uploaded-file",
+                file_name,
                 upload_file.content_type,
                 data,
             )
@@ -321,29 +321,60 @@ async def upload_documents(
                 }
             )
         except UnsupportedDocumentTypeError as exc:
-            _set_upload_status(request, state="failed", updated_at=_now_iso(), message=str(exc))
-            raise HTTPException(status_code=415, detail=str(exc)) from exc
+            file_results.append(
+                {
+                    "file_name": file_name,
+                    "status": "error",
+                    "error": str(exc),
+                }
+            )
+        except Exception as exc:
+            file_results.append(
+                {
+                    "file_name": file_name,
+                    "status": "error",
+                    "error": f"Upload parsing failed: {exc}",
+                }
+            )
+
+    neo4j_results: list[dict[str, Any]] = []
+    if records:
+        try:
+            neo4j_results = document_service.ingest_records(records)
         except Exception as exc:
             _set_upload_status(request, state="failed", updated_at=_now_iso(), message=str(exc))
-            raise HTTPException(status_code=502, detail=f"Upload parsing failed: {exc}") from exc
+            raise HTTPException(status_code=502, detail=f"Neo4j ingestion failed: {exc}") from exc
 
-    try:
-        neo4j_results = document_service.ingest_records(records)
-    except Exception as exc:
-        _set_upload_status(request, state="failed", updated_at=_now_iso(), message=str(exc))
-        raise HTTPException(status_code=502, detail=f"Neo4j ingestion failed: {exc}") from exc
+    parsed_count = len(records)
+    failed_count = len(file_results) - parsed_count
+    total_count = len(files)
+
+    if parsed_count == 0:
+        response_status = "failed"
+        upload_state = "failed"
+        message = "No files were parsed successfully."
+    elif failed_count > 0:
+        response_status = "partial"
+        upload_state = "partial"
+        message = f"Uploaded {parsed_count} of {total_count} file(s); {failed_count} failed."
+    else:
+        response_status = "completed"
+        upload_state = "completed"
+        message = f"Uploaded {parsed_count} file(s)."
 
     _set_upload_status(
         request,
-        state="completed",
+        state=upload_state,
         updated_at=_now_iso(),
-        item_count=len(records),
-        message=f"Uploaded {len(records)} file(s).",
+        item_count=parsed_count,
+        message=message,
     )
 
     return {
-        "status": "completed",
-        "file_count": len(records),
+        "status": response_status,
+        "file_count": total_count,
+        "parsed_count": parsed_count,
+        "failed_count": failed_count,
         "files": file_results,
         "neo4j": neo4j_results,
     }

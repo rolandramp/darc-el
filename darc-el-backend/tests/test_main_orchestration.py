@@ -142,6 +142,8 @@ class MainOrchestrationTests(unittest.TestCase):
         payload = response.json()
         self.assertEqual(payload["status"], "completed")
         self.assertEqual(payload["file_count"], 2)
+        self.assertEqual(payload["parsed_count"], 2)
+        self.assertEqual(payload["failed_count"], 0)
         self.assertEqual(len(payload["files"]), 2)
         document_service.ingest_upload.assert_any_call("paper-a.pdf", "application/pdf", b"pdf-bytes")
         document_service.ingest_upload.assert_any_call("notes.txt", "text/plain", b"Beta")
@@ -154,7 +156,7 @@ class MainOrchestrationTests(unittest.TestCase):
         self.assertEqual(status_response.json()["state"], "completed")
 
     @patch("main.load_dotenv")
-    def test_upload_endpoint_rejects_unsupported_file_types(self, load_dotenv_mock):
+    def test_upload_endpoint_reports_errors_for_unsupported_file_types(self, load_dotenv_mock):
         document_service = MagicMock()
         document_service.ingest_upload.side_effect = api_routes.UnsupportedDocumentTypeError(
             "Unsupported document type: application/zip"
@@ -168,8 +170,69 @@ class MainOrchestrationTests(unittest.TestCase):
                 )
 
         load_dotenv_mock.assert_called_once()
-        self.assertEqual(response.status_code, 415)
-        self.assertEqual(response.json()["detail"], "Unsupported document type: application/zip")
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["status"], "failed")
+        self.assertEqual(payload["file_count"], 1)
+        self.assertEqual(payload["parsed_count"], 0)
+        self.assertEqual(payload["failed_count"], 1)
+        self.assertEqual(payload["files"][0]["file_name"], "archive.zip")
+        self.assertEqual(payload["files"][0]["status"], "error")
+        self.assertEqual(payload["files"][0]["error"], "Unsupported document type: application/zip")
+        document_service.ingest_records.assert_not_called()
+
+    @patch("main.load_dotenv")
+    def test_upload_endpoint_returns_partial_success_when_one_file_fails(self, load_dotenv_mock):
+        good_record = DocumentIngestionRecord(
+            file_name="paper-a.pdf",
+            content_type="application/pdf",
+            source_type="pdf",
+            metadata={"page_count": 1},
+            text="Alpha",
+            chunks=[DocumentChunk(index=0, text="Alpha")],
+            parser_name="pypdf",
+        )
+
+        document_service = MagicMock()
+        document_service.ingest_upload.side_effect = [
+            good_record,
+            RuntimeError("Limit reached while decompressing."),
+        ]
+        document_service.ingest_records.return_value = [
+            {"file_name": "paper-a.pdf", "status": "completed"},
+        ]
+
+        with patch.object(api_routes, "DocumentService", return_value=document_service):
+            with TestClient(main.app) as client:
+                response = client.post(
+                    "/upload",
+                    files=[
+                        ("files", ("paper-a.pdf", b"pdf-bytes", "application/pdf")),
+                        ("files", ("broken.pdf", b"bad-bytes", "application/pdf")),
+                    ],
+                )
+
+        load_dotenv_mock.assert_called_once()
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["status"], "partial")
+        self.assertEqual(payload["file_count"], 2)
+        self.assertEqual(payload["parsed_count"], 1)
+        self.assertEqual(payload["failed_count"], 1)
+        self.assertEqual(len(payload["files"]), 2)
+        self.assertEqual(payload["files"][0]["file_name"], "paper-a.pdf")
+        self.assertEqual(payload["files"][0]["status"], "parsed")
+        self.assertEqual(payload["files"][1]["file_name"], "broken.pdf")
+        self.assertEqual(payload["files"][1]["status"], "error")
+        self.assertIn("Upload parsing failed", payload["files"][1]["error"])
+        self.assertEqual(payload["neo4j"], [{"file_name": "paper-a.pdf", "status": "completed"}])
+        document_service.ingest_records.assert_called_once_with([good_record])
+
+        with TestClient(main.app) as client:
+            status_response = client.get("/upload/status")
+
+        self.assertEqual(status_response.status_code, 200)
+        self.assertEqual(status_response.json()["state"], "partial")
 
     @patch("main.load_dotenv")
     def test_documents_endpoint_lists_documents(self, load_dotenv_mock):

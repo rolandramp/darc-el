@@ -72,6 +72,13 @@ The API extracts text and metadata, chunks the text, and writes the result to Ne
 - one `DocumentMetadata` node per file
 - one `DocumentChunk` node per chunk
 
+For PDFs with large compressed content streams, the parser decompression limit is configurable
+through `PDF_ZLIB_MAX_OUTPUT_LENGTH` (default: `200000000` bytes).
+
+The upload response now reports per-file outcomes in `files` with `status` values of
+`parsed` or `error`. Batch uploads can complete with `status: "partial"` when at least one
+file succeeds and one or more files fail.
+
 The current Neo4j connection used by the app inside Docker is `bolt://neo4j-kg:7687`, with credentials controlled by `NEO4J_USER` and `NEO4J_PASS`.
 
 ## Document Management
