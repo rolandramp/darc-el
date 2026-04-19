@@ -85,7 +85,7 @@ flowchart TD
 
 	DOC -->|POST /upload parse + chunk| DOC
 	DOC -->|GET /documents| NEO[(Neo4j Graph)]
-	DOC -->|DELETE /documents/{file_name}\ndelete all matching file_name| NEO
+    DOC -->|DELETE /documents/:file_name\ndelete all matching file_name| NEO
 	DOC -->|ingest records| NEO
 
 	DL -->|POST /download| ZOT[Zotero API]
